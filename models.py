@@ -3,6 +3,8 @@ from tensorflow import keras
 import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
 
+import keras_utils.metrics
+
 
 def sequential_multilabel_model(n_layers, layer_size, output_size,
                                 input_size=None):
@@ -22,7 +24,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
     # model.add_loss(keras.losses.CategoricalCrossentropy())
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=2e-4),
              loss=keras.losses.BinaryCrossentropy(from_logits=True),
-             metrics=["accuracy"])
+             metrics=[keras_utils.metrics.Coverage()])
     return model
 
 
