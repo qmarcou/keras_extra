@@ -62,5 +62,5 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         dev_y_pred = model.predict(x_dev)
         dev_metrics_dict = {}
         for metric in dev_metrics:
-            dev_metrics_dict[metric.__name__] = metric(y_dev,dev_y_pred)
+            dev_metrics_dict['dev_'+metric.__name__] = metric(y_dev,dev_y_pred)
         return dev_metrics_dict
