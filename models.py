@@ -1,4 +1,3 @@
-import keras_tuner
 from tensorflow import keras
 import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
@@ -50,7 +49,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         self.output_size = output_size
         super(SequentialMultilabelHypermodel, self).__init__()
 
-    def build(self, hp: keras_tuner.HyperParameters):
+    def build(self, hp: kt.HyperParameters):
 
         if hp.Boolean(name="use_dropout", default=True):
             dropout_rate = hp.Float(name="dropout", min_value=1e-3,
@@ -72,7 +71,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                                                 values=['relu',
                                                                         'tanh']))
 
-    def fit(self, hp: keras_tuner.HyperParameters,
+    def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
             train_dev_frac, x_dev, y_dev, dev_metrics,
             earlystop_monitor: str = 'val_loss',
