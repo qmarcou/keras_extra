@@ -6,6 +6,10 @@ from tensorflow.python.keras.losses import LossFunctionWrapper
 from tensorflow.python.keras.utils import losses_utils
 
 
+def get_ndim(x: tf.Tensor):
+    return tf.shape(x).shape[0]
+
+
 def weighted_binary_crossentropy(y_true, y_pred, class_weights,
                                  from_logits=False):
     """Computes a weighted version of the binary crossentropy loss.
@@ -49,9 +53,17 @@ def weighted_binary_crossentropy(y_true, y_pred, class_weights,
     # Assuming only binary information has been passed in y_true we'll simply
     # reweight each output
     # first reshape the tensors in order to use broadcast
-    cross_ent = tf.reshape(cross_ent, cross_ent.shape.as_list() + [1])
+    # BUGFIX: this shape construction fixes issues with Tensors of unknown
+    # sizes
+    shape = tf.shape(cross_ent)  # get dynamic shape
+    shape = [shape[i] for i in range(0, get_ndim(cross_ent))]  # make it a list
+    cross_ent = tf.reshape(cross_ent,
+                           shape=shape+[1])
+
+    shape = tf.shape(class_weights)
+    shape = [shape[i] for i in range(0, get_ndim(class_weights))]
     class_weights = tf.reshape(class_weights,
-                               [1] + class_weights.shape.as_list())
+                               shape=[1]+shape)
 
     # Perform the product to get a shape = `[batch_size, d0, .. dN, 2]`
     weighted_cross_ent_contrib = tf.multiply(cross_ent, class_weights)
@@ -59,15 +71,15 @@ def weighted_binary_crossentropy(y_true, y_pred, class_weights,
     # Then add the 0 and 1 contribution
     weighted_cross_ent = tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
-                 begin=[0] * y_true.ndim + [0],
-                 size=[-1] * y_true.ndim + [1]),
-        shape=neg_y_true.shape),
+                 begin=[0] * get_ndim(y_true) + [0],
+                 size=[-1] * get_ndim(y_true) + [1]),
+        shape=tf.shape(neg_y_true)),
         neg_y_true)
     weighted_cross_ent += tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
-                 begin=[0] * y_true.ndim + [1],
-                 size=[-1] * y_true.ndim + [1]),
-        shape=y_true.shape),
+                 begin=[0] * get_ndim(y_true) + [1],
+                 size=[-1] * get_ndim(y_true) + [1]),
+        shape=tf.shape(y_true)),
         y_true)
 
     return K.mean(weighted_cross_ent, axis=-1)

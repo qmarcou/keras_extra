@@ -42,10 +42,10 @@ class Test(TestCase):
                                                  reduction=Reduction.SUM_OVER_BATCH_SIZE)
         assert_array_almost_equal(np.array(1.273069525),
                                   wbce(y_true, y_pred).numpy())
-        # Inside a model pipeline
-        # check that the loss function handles correctly tensors with unknown
-        # dimension (at model initialization batch size is unknown and shape
-        # the first dimension is None and the passed vectors are placeholders
+        # Inside a model pipeline check that the loss function handles
+        # correctly tensors with unknown dimension (at model initialization
+        # batch size is unknown and the shape of the first dimension is None
+        # and the passed vectors are placeholders
         model = keras.Sequential([keras.layers.Dense(1)])
         model.compile(loss=wbce)
         model.fit(x=[1, 2],
