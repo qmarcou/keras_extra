@@ -49,27 +49,31 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         self.output_size = output_size
         super(SequentialMultilabelHypermodel, self).__init__()
 
-    def build(self, hp: kt.HyperParameters):
+    def build(self, hp: kt.HyperParameters, hp_kwargs: dict):
 
-        if hp.Boolean(name="use_dropout", default=True):
-            dropout_rate = hp.Float(name="dropout", min_value=1e-3,
-                                    max_value=.4,
-                                    parent_name="use_dropout",
-                                    parent_values=True,
-                                    sampling='log', default=0)
+        if hp_kwargs['use_dropout']['enable']:
+            hp_kwargs['use_dropout'].pop('enable')
+            if hp.Boolean(name="use_dropout", **hp_kwargs['use_dropout']):
+                dropout_rate = hp.Float(name="dropout", **hp_kwargs['dropout'])
+            else:
+                dropout_rate = 0.0
         else:
             dropout_rate = 0.0
-        return sequential_multilabel_model(hp.Int("num_layers", 1, 10),
-                                           hp.Int("units", min_value=32,
-                                                  max_value=2048,
-                                                  step=128),
+        if hp_kwargs['batchnorm']['enable']:
+            hp_kwargs['batchnorm'].pop('enable')
+            batchnorm = hp.Boolean(name="batchnorm", **hp_kwargs['batchnorm'])
+        else:
+            batchnorm=False
+        return sequential_multilabel_model(hp.Int("num_layers",
+                                                  **hp_kwargs['num_layers']),
+                                           hp.Int("units",
+                                                  **hp_kwargs['units']),
                                            output_size=self.output_size,
                                            input_size=None,
-                                           batchnorm=hp.Boolean("batchnorm"),
+                                           batchnorm=batchnorm,
                                            dropout=dropout_rate,
                                            activation=hp.Choice('activation',
-                                                                values=['relu',
-                                                                        'tanh']))
+                                                                **hp_kwargs['activation']))
 
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
