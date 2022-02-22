@@ -3,6 +3,7 @@ import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
 from keras.losses import BinaryCrossentropy
 import keras_utils.metrics
+import copy
 
 
 def sequential_multilabel_model(n_layers, layer_size, output_size,
@@ -47,12 +48,14 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
 
 
 class SequentialMultilabelHypermodel(kt.HyperModel):
-    def __init__(self, output_size: int):
+    def __init__(self, output_size: int, hp_kwargs: dict, **kwargs):
         self.output_size = output_size
+        self.hp_kwargs = hp_kwargs
+        self.build_kwargs = kwargs
         super(SequentialMultilabelHypermodel, self).__init__()
 
-    def build(self, hp: kt.HyperParameters, hp_kwargs: dict, **kwargs):
-
+    def build(self, hp: kt.HyperParameters):
+        hp_kwargs = copy.deepcopy(self.hp_kwargs)
         if hp_kwargs['use_dropout']['enable']:
             hp_kwargs['use_dropout'].pop('enable')
             if hp.Boolean(name="use_dropout", **hp_kwargs['use_dropout']):
@@ -65,7 +68,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             hp_kwargs['batchnorm'].pop('enable')
             batchnorm = hp.Boolean(name="batchnorm", **hp_kwargs['batchnorm'])
         else:
-            batchnorm=False
+            batchnorm = False
         return sequential_multilabel_model(hp.Int("num_layers",
                                                   **hp_kwargs['num_layers']),
                                            hp.Int("units",
@@ -75,8 +78,9 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            batchnorm=batchnorm,
                                            dropout=dropout_rate,
                                            activation=hp.Choice('activation',
-                                                                **hp_kwargs['activation']),
-                                           **kwargs)
+                                                                **hp_kwargs[
+                                                                    'activation']),
+                                           **self.build_kwargs)
 
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
