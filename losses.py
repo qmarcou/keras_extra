@@ -55,30 +55,48 @@ def weighted_binary_crossentropy(y_true, y_pred, class_weights,
     # first reshape the tensors in order to use broadcast
     # BUGFIX: this shape construction fixes issues with Tensors of unknown
     # sizes
-    shape = tf.shape(cross_ent)  # get dynamic shape
-    shape = [shape[i] for i in range(0, get_ndim(cross_ent))]  # make it a list
+    newshape = tf.concat([tf.shape(cross_ent),  # get dynamic shape
+                          tf.ones(shape=1, dtype=tf.int32)],  # add 1 dimension
+                         axis=0)
     cross_ent = tf.reshape(cross_ent,
-                           shape=shape+[1])
+                           shape=newshape)
 
-    shape = tf.shape(class_weights)
-    shape = [shape[i] for i in range(0, get_ndim(class_weights))]
+    newshape = tf.concat([tf.ones(shape=1, dtype=tf.int32),
+                          tf.shape(class_weights)],  # get dynamic shape
+                         axis=0)
     class_weights = tf.reshape(class_weights,
-                               shape=[1]+shape)
+                               shape=newshape)
 
     # Perform the product to get a shape = `[batch_size, d0, .. dN, 2]`
     weighted_cross_ent_contrib = tf.multiply(cross_ent, class_weights)
 
     # Then add the 0 and 1 contribution
+    # define slice size to get all values from last dimension
+    slice_size = tf.concat([tf.fill(dims=tf.reshape(tf.rank(y_true),
+                                                    shape=tf.ones(shape=1,
+                                                                  dtype=tf.int32)),
+                                    value=-1),
+                            tf.ones(shape=1, dtype=tf.int32)],
+                           axis=0)
+    zeros_y_true_dim = tf.zeros(shape=tf.rank(y_true),
+                                           dtype=tf.int32)
+    # Add contribution for y_true==0
     weighted_cross_ent = tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
-                 begin=[0] * get_ndim(y_true) + [0],
-                 size=[-1] * get_ndim(y_true) + [1]),
+                 begin=tf.concat([zeros_y_true_dim,
+                                  tf.zeros(shape=1, dtype=tf.int32)],
+                                 axis=0),
+                 size=slice_size),
         shape=tf.shape(neg_y_true)),
         neg_y_true)
+
+    # Add contribution for y_true==1
     weighted_cross_ent += tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
-                 begin=[0] * get_ndim(y_true) + [1],
-                 size=[-1] * get_ndim(y_true) + [1]),
+                 begin=tf.concat([zeros_y_true_dim,
+                                  tf.ones(shape=1, dtype=tf.int32)],
+                                 axis=0),
+                 size=slice_size),
         shape=tf.shape(y_true)),
         y_true)
 
