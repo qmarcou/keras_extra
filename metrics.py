@@ -2,6 +2,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+from typing import Type
 
 
 def get_lowest_true_index(y_true, y_pred, from_logits=True):
@@ -101,3 +102,29 @@ class Coverage(keras.metrics.Mean):
                                                  from_logits=self.from_logits)
         super(Coverage, self).update_state(lowest_true_rank,
                                            sample_weight=sample_weight)
+
+
+def subset_metric_builder(metric_class: type[keras.metrics.Metric]):
+    # TODO:
+    #  check if I can assign dynamic name to the created class, cf
+    #  https://python-course.eu/oop/dynamically-creating-classes-with-type.php
+
+    # Dynamic class building using
+    # https://stackoverflow.com/questions/21060073/dynamic-inheritance-in-python
+    class SubsetMetricWrapper(metric_class):
+        def __init__(self, gather_kwargs, name=None, **kwargs):
+            self.gather_kwargs = gather_kwargs
+            if name is None:
+                name = ("subset_" + self.__class__.__base__.__name__)
+            super(SubsetMetricWrapper, self).__init__(name=name,
+                                                      **kwargs)
+
+        def update_state(self, y_true, y_pred, sample_weight=None):
+            # Filter data to the defined subset
+            y_true = tf.gather(params=y_true, **self.gather_kwargs)
+            y_pred = tf.gather(params=y_pred, **self.gather_kwargs)
+            return (super(SubsetMetricWrapper, self).
+                    update_state(y_true=y_true, y_pred=y_pred,
+                                 sample_weight=sample_weight))
+
+    return SubsetMetricWrapper
