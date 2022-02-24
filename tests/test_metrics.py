@@ -1,7 +1,7 @@
 from unittest import TestCase
 from numpy import testing
 import keras.metrics
-
+import tensorflow as tf
 from keras_utils import metrics
 
 
@@ -49,8 +49,9 @@ class TestSubsetMetric(TestCase):
         new_metric = metrics.subset_metric_builder(
             keras.metrics.BinaryAccuracy)
         normal_metric = keras.metrics.BinaryAccuracy()
-        new_metric_instance = new_metric(gather_kwargs={
-            'indices': [0, 1], 'axis': 0})
+        new_metric_instance = new_metric(slicing_func=tf.gather,
+                                         slicing_func_kwargs={
+                                             'indices': [0, 1], 'axis': 0})
         y_true = [[0, 1], [0, 0]]
         y_pred = [[0, 1], [1, 0]]
         testing.assert_array_almost_equal(
@@ -58,15 +59,17 @@ class TestSubsetMetric(TestCase):
             new_metric_instance(y_true=y_true, y_pred=y_pred))
 
         # Slice out batch examples
-        new_metric_instance = new_metric(gather_kwargs={
-            'indices': [1], 'axis': 0})
+        new_metric_instance = new_metric(slicing_func=tf.gather,
+                                         slicing_func_kwargs={
+                                             'indices': [1], 'axis': 0})
         normal_metric.reset_states()
         self.assertEqual(normal_metric(y_true=[0, 0], y_pred=[1, 0]),
                          new_metric_instance(y_true=y_true, y_pred=y_pred))
 
         # Slice out output dimensions
-        new_metric_instance = new_metric(gather_kwargs={
-            'indices': [0], 'axis': 1})
+        new_metric_instance = new_metric(slicing_func=tf.gather,
+                                         slicing_func_kwargs={
+                                             'indices': [0], 'axis': 1})
         normal_metric.reset_states()
         self.assertEqual(normal_metric(y_true=[0, 0], y_pred=[0, 1]),
                          new_metric_instance(y_true=y_true, y_pred=y_pred))

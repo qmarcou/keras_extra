@@ -112,8 +112,10 @@ def subset_metric_builder(metric_class: type[keras.metrics.Metric]):
     # Dynamic class building using
     # https://stackoverflow.com/questions/21060073/dynamic-inheritance-in-python
     class SubsetMetricWrapper(metric_class):
-        def __init__(self, gather_kwargs, name=None, **kwargs):
-            self.gather_kwargs = gather_kwargs
+        def __init__(self, slicing_func_kwargs, name=None, slicing_func=tf.gather,
+                     **kwargs):
+            self.gather_kwargs = slicing_func_kwargs
+            self.slicing_func = slicing_func
             if name is None:
                 name = ("subset_" + self.__class__.__base__.__name__)
             super(SubsetMetricWrapper, self).__init__(name=name,
@@ -121,8 +123,8 @@ def subset_metric_builder(metric_class: type[keras.metrics.Metric]):
 
         def update_state(self, y_true, y_pred, sample_weight=None):
             # Filter data to the defined subset
-            y_true = tf.gather(params=y_true, **self.gather_kwargs)
-            y_pred = tf.gather(params=y_pred, **self.gather_kwargs)
+            y_true = self.slicing_func(params=y_true, **self.gather_kwargs)
+            y_pred = self.slicing_func(params=y_pred, **self.gather_kwargs)
             return (super(SubsetMetricWrapper, self).
                     update_state(y_true=y_true, y_pred=y_pred,
                                  sample_weight=sample_weight))
