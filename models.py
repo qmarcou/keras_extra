@@ -18,14 +18,21 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
     else:
         input_layer = []
     hidden_layers = []
+    # Use linear activation if batchnorm to scale the logits
     for i in range(1, n_layers):
         hidden_layers.append(keras.layers.Dense(units=layer_size,
-                                                activation=activation,
-                                                name="hiddenL_" + str(i),
+                                                activation='linear',
+                                                name="DenseHiddenL_" + str(i),
                                                 use_bias=not batchnorm))
         if batchnorm:
             hidden_layers.append(keras.layers.BatchNormalization(
                 name="batchnormL_" + str(i)))
+
+        # Create activation after batchnorm to scale logits
+        hidden_layers.append(keras.layers.Activation(activation=activation,
+                                                     name=("activationL_" +
+                                                           str(i))))
+
         if dropout != 0:
             hidden_layers.append(keras.layers.Dropout(dropout,
                                                       name="dropoutL_"
