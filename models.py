@@ -11,6 +11,11 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                 dropout: float = 0, output_bias=None,
                                 activation='relu',
                                 loss=BinaryCrossentropy(from_logits=False),
+                                metrics=(keras_utils.metrics.Coverage(),
+                                         keras.metrics.BinaryAccuracy(),
+                                         keras.metrics.Precision(),
+                                         keras.metrics.AUC(),
+                                         keras.metrics.Recall()),
                                 learning_rate=2e-4):
     if input_size is not None:
         input_layer = [
@@ -46,11 +51,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
                   loss=loss,
-                  metrics=[keras_utils.metrics.Coverage(),
-                           keras.metrics.BinaryAccuracy(),
-                           keras.metrics.Precision(),
-                           keras.metrics.AUC(),
-                           keras.metrics.Recall()])
+                  metrics=metrics)
     return model
 
 
