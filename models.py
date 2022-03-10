@@ -10,7 +10,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                 input_size=None, batchnorm: bool = False,
                                 dropout: float = 0, output_bias=None,
                                 activation='relu',
-                                loss=BinaryCrossentropy(from_logits=False),
+                                loss=BinaryCrossentropy,
+                                loss_kwargs={'from_logits': False},
                                 metrics=(keras_utils.metrics.Coverage(),
                                          keras.metrics.BinaryAccuracy(),
                                          keras.metrics.Precision(),
@@ -50,7 +51,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
     model = keras.Sequential(layers)
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
-                  loss=loss,
+                  loss=loss(**loss_kwargs),
                   metrics=metrics)
     return model
 
@@ -64,6 +65,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
 
     def build(self, hp: kt.HyperParameters):
         hp_kwargs = copy.deepcopy(self.hp_kwargs)
+        build_kwargs = copy.deepcopy(self.build_kwargs)
         if hp_kwargs['use_dropout']['enable']:
             hp_kwargs['use_dropout'].pop('enable')
             if hp.Boolean(name="use_dropout", **hp_kwargs['use_dropout']):
@@ -77,6 +79,18 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             batchnorm = hp.Boolean(name="batchnorm", **hp_kwargs['batchnorm'])
         else:
             batchnorm = False
+
+        loss_class = self.build_kwargs.get('loss')
+        # Custom hyperparameters for peculiar metrics
+        if loss_class is not None and loss_class.__name__ == \
+                'WeightedBinaryCrossentropy':
+            if hp_kwargs['class_weight_cap']['enable']:
+                hp_kwargs['class_weight_cap'].pop('enable')
+                # Create a hyperparameter for class weight cap
+                build_kwargs['loss_kwargs']['class_weights'] = (
+                    build_kwargs['loss_kwargs']['class_weights']
+                        .clip(hp.Float(**hp_kwargs['class_weight_cap'])))
+
         return sequential_multilabel_model(hp.Int("num_layers",
                                                   **hp_kwargs['num_layers']),
                                            hp.Int("units",
@@ -88,7 +102,8 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            activation=hp.Choice('activation',
                                                                 **hp_kwargs[
                                                                     'activation']),
-                                           **self.build_kwargs)
+
+                                           **build_kwargs)
 
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
