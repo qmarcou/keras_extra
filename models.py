@@ -89,7 +89,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                 # Create a hyperparameter for class weight cap
                 build_kwargs['loss_kwargs']['class_weights'] = (
                     build_kwargs['loss_kwargs']['class_weights']
-                        .clip(hp.Float(**hp_kwargs['class_weight_cap'])))
+                        .clip(max=hp.Float(**hp_kwargs['class_weight_cap'])))
 
         return sequential_multilabel_model(hp.Int("num_layers",
                                                   **hp_kwargs['num_layers']),
