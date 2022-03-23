@@ -1,7 +1,15 @@
 """Some useful math operation extensions for Tensorflow."""
 import tensorflow as tf
 
-#@tf.function
+# Solutions based on the following links
+# https://github.com/tensorflow/tensorflow/issues/1241
+# https://github.com/tensorflow/tensorflow/issues/10003
+# https://www.tensorflow.org/api_docs/python/tf/sparse/map_values
+# https://stackoverflow.com/questions/39650169/sparsetensor-equivalent-of-tf-tile
+# https://stackoverflow.com/questions/48697079/tensorflow-batch-sparse-multiply
+
+
+# @tf.function
 def expend_unit_dim(sp_tensor: tf.SparseTensor,
                     target_shape: tf.TensorShape) -> tf.SparseTensor:
     sp_shape = tf.shape(sp_tensor)
@@ -11,10 +19,13 @@ def expend_unit_dim(sp_tensor: tf.SparseTensor,
             if sp_shape[i] == 1 and target_shape[i] > 1:
                 sp_tensor = tf.sparse.concat(axis=i,
                                              sp_inputs=[sp_tensor for j in
-                                                        tf.range(0,target_shape[i])])
+                                                        tf.range(0,
+                                                                 target_shape[
+                                                                     i])])
     return sp_tensor
 
-#@tf.function
+
+# @tf.function
 def sparse_dense_multiply(sparse_t: tf.SparseTensor,
                           dense_t: tf.Tensor,
                           keep_sparse=True) -> tf.SparseTensor:
@@ -32,15 +43,15 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
 
     Parameters
     ----------
-    sparse
-    dense
+    sparse_t
+    dense_t
     keep_sparse
 
     Returns
     -------
 
     """
-    #Assert compatible shapes
+    # Assert compatible shapes
     if keep_sparse:
         sparse_t = expend_unit_dim(sparse_t, dense_t.shape)
         return sparse_t.__mul__(dense_t)
