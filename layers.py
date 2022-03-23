@@ -82,7 +82,7 @@ class ExtremumConstraintModule(Activation):
                                                .shape[0],
                                                dtype=self.adjacency_mat.dtype))
 
-        extremum = str(extremum)
+        extremum = str(extremum).lower()
         if extremum in ['min', 'minimum']:
             self.extremum_func = [tf.divide, tf.reduce_min]
             self.extremum_str = "min"
@@ -145,3 +145,43 @@ class ExtremumConstraintModule(Activation):
                   'sparse': self.sparse_adjacency}
         base_config = super(ExtremumConstraintModule, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+
+class DenseHierL2Reg(keras.layers.Dense):
+    """
+    A Dense layer with regularization loss based on hierarchical relationships.
+
+    This dense layer embeds a regularization term imposing similar weights
+    for parent and child nodes based on the L2 norm of the difference between
+    child and parent weights.
+
+    This regularization can be made based on input or output relationship.
+    The output regularization is the implementation of Gopal and Yang,
+    "Recursive Regularization for Large-scale Classification with Hierarchical
+    and Graphical Dependencies",2013. As pointed out in the latter paper can
+    also be applied in more general graph relationships.
+
+    Note: this class should be expanded to accept several hierarchies as input
+    to enable multi-graph regularization with different weights for each graph.
+    """
+
+
+    def __init__(self, adjacency_matrix: np.ndarray | coo_matrix,
+                 hier_side: str,
+                     sparse_adjacency: bool = False,
+                     **kwargs):
+        super(keras.layers.Dense, self).__init__(**kwargs)
+        self.sparse_adjacency = sparse_adjacency
+        self.sparse_adjacency = adjacency_matrix
+
+        hier_side = str(hier_side).lower()
+        if hier_side in ['in', 'input']:
+            self.hier_side = "input"
+        elif hier_side in ['out', 'output']:
+            self.hier_side = "output"
+        else:
+            raise ValueError("Invalid 'extremum' argument.")
+
+    def call(self, inputs):
+        # call a tf.func computing the L2 norm of difference with each parent
+        self.add_loss(self.weights,self.bias, self.hierarchy)
