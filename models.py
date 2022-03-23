@@ -5,6 +5,8 @@ from keras.losses import BinaryCrossentropy
 import keras_utils.metrics
 import copy
 
+# Some useful ressources:
+# Multi-output: https://stackoverflow.com/questions/44036971/multiple-outputs-in-keras
 
 def sequential_multilabel_model(n_layers, layer_size, output_size,
                                 input_size=None, batchnorm: bool = False,

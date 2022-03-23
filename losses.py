@@ -5,6 +5,14 @@ import keras.backend as K
 from tensorflow.python.keras.losses import LossFunctionWrapper
 from tensorflow.python.keras.utils import losses_utils
 
+# Some useful ressources:
+# https://keras.io/getting_started/intro_to_keras_for_researchers/#tracking-losses-created-by-layers
+# https://stackoverflow.com/questions/61661739/tensorflow-2-loss-using-hidden-layers-output
+# https://www.tensorflow.org/api_docs/python/tf/keras/layers/Layer#add_loss
+# https://stackoverflow.com/questions/50063613/what-is-the-purpose-of-the-add-loss-function-in-keras
+# Multiple outputs to use compile loss argument and access y_true:
+# https://stackoverflow.com/questions/44036971/multiple-outputs-in-keras
+
 
 def get_ndim(x: tf.Tensor):
     return tf.shape(x).shape[0]
@@ -112,6 +120,9 @@ class WeightedBinaryCrossentropy(LossFunctionWrapper):
 
 
     """
+    # TODO : implement per sample class weighting
+    #  https://stackoverflow.com/questions/48315094/using-sample-weight-in-keras-for-sequence-labelling
+    #  https://github.com/keras-team/keras/issues/2592
 
     def __init__(self,
                  class_weights,
