@@ -45,7 +45,6 @@ class ExtremumConstraintModule(Activation):
         self.activation = activations.get(activation)
         self.sparse_adjacency = sparse_adjacency
 
-        # FIXME add identity diag as 1s
         # Check that provided matrix is square
         assert adjacency_matrix.shape[0] == adjacency_matrix.shape[1]
         # Treat adjacency matrix as sparse if needed
@@ -67,8 +66,21 @@ class ExtremumConstraintModule(Activation):
 
             # reorder in row major as advised in tf docs
             self.adjacency_mat = tf.sparse.reorder(self.adjacency_mat)
+            # add ones on the diagonal
+            self.adjacency_mat = tf.sparse.add(self.adjacency_mat,
+                                               tf.sparse.eye(
+                                                   num_rows=adjacency_matrix.shape[0],
+                                               num_columns=adjacency_matrix.shape[0],
+                                               dtype=self.adjacency_mat.dtype))
         else:
             self.adjacency_mat = tf.constant(adjacency_matrix)
+            # Add ones on the diagonal to include considered class predictions
+            self.adjacency_mat = tf.add(self.adjacency_mat,
+                                        tf.eye(num_rows=adjacency_matrix
+                                               .shape[0],
+                                               num_columns=adjacency_matrix
+                                               .shape[0],
+                                               dtype=self.adjacency_mat.dtype))
 
         extremum = str(extremum)
         if extremum in ['min', 'minimum']:
@@ -81,7 +93,6 @@ class ExtremumConstraintModule(Activation):
             raise ValueError("Invalid 'extremum' argument.")
 
     def call(self, inputs):
-        # FIXME cast dtype
         # Compute raw activations
         act = self.activation(inputs)
         act_shape = tf.shape(act)
@@ -91,6 +102,11 @@ class ExtremumConstraintModule(Activation):
                                act_shape[-1:]],
                               axis=0)
         act = tf.reshape(act, shape=new_shape)
+
+        # Cast adjacency mat to the correct dtype
+        # This operation should only happen once
+        if self.adjacency_mat.dtype != act.dtype:
+            self.adjacency_mat = tf.cast(self.adjacency_mat, act.dtype)
 
         # Adjust adjacency_mat shape to use broadcast if needed
         # This operation should only happen once
