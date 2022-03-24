@@ -29,30 +29,29 @@ class SequentialPreOutputLoss(keras.Sequential):
         # Instantiate a Sequential model from parameters
         self.loss_layer_name = loss_layer_name
         self._loss_layer_added = False
+        self._loss_tensor_output = None
         self.output_layer_name = None
         super(SequentialPreOutputLoss, self).__init__(layers=layers,
                                                       name=name)
-        # The only difference with a Sequential model is in the outputs
-        # if self.outputs is not None:
-        #     self.output_layer_name = self.outputs[0].name
-        #     self._add_loss_output()
 
     def _add_loss_output(self):
-        # To get the Sequential API working the final output layer must remain
-        # outputs[0], the loss one will always be outputs[1]
+        # To get the Sequential API working the final output layer tensor must
+        # remain outputs[0], the loss one will always be outputs[1]
         # Ensure the first output exists, and add loss as second one
         assert len(self.outputs) == 1
-        # FIXME handle case where loss_layer is not yet present
-        if self.loss_layer_name is not None:
-            self.outputs.append(self.get_layer(name=self.loss_layer_name))
+        if self.loss_layer_name is not None and \
+                self.loss_layer_name != self.output_layer_name:
+            self.outputs.append(self._loss_tensor_output)
 
     def add(self, layer):
         super(SequentialPreOutputLoss, self).add(layer)
         if self.loss_layer_name is not None and \
                 layer.name == self.loss_layer_name:
             self._loss_layer_added = True
+            self._loss_tensor_output = self.outputs[0]
+
         if self.outputs is not None:
-            self.output_layer_name = self.outputs[0].name
+            self.output_layer_name = layer.name
             # Add back the 2nd output
             if self._loss_layer_added:
                 self._add_loss_output()
@@ -62,6 +61,11 @@ class SequentialPreOutputLoss(keras.Sequential):
                 metrics=None,
                 *args,
                 **kwargs):
+        # Check that the specified loss layer has been added to the model
+        if self.loss_layer_name is not None and  not self._loss_layer_added:
+            raise ValueError("The layer with specified loss_layer_name has "
+                             "not been added to the model")
+
         # transparently assign loss and metrics computation to the correct
         # layers in case loss and metrics have been passed as lists
         if not isinstance(loss, dict) and self.loss_layer_name is not None:
