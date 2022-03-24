@@ -5,8 +5,70 @@ from keras.losses import BinaryCrossentropy
 import keras_utils.metrics
 import copy
 
+
 # Some useful ressources:
 # Multi-output: https://stackoverflow.com/questions/44036971/multiple-outputs-in-keras
+
+
+class SequentialPreOutputLoss(keras.Sequential):
+    """
+    A class building a Sequential model with separate loss and output.
+
+    A wrapper class allowing to use the simple Keras Sequential model interface
+    for model building but adding the flexibility of using a layer different
+    from the last one to compute the prediction loss (specified in
+    model.compile).
+    The only difference with a Sequential model is in the ability to have 2
+    outputs: one for actual outputs (and metrics computation), another for
+    prediction loss computation. If the 'loss_layer_name' argument is not
+    provided the model will behave like a normal
+    """
+
+    def __init__(self, layers=None, name=None,
+                 loss_layer_name: str = None):
+        # Instantiate a Sequential model from parameters
+        super(keras.Sequential, self).__init__(layers=layers,
+                                               name=name)
+        # The only difference with a Sequential model is in the outputs
+        self.output_layer_name = self.outputs[0].name
+        self.loss_layer_name = loss_layer_name
+        self._add_loss_output()
+
+    def _add_loss_output(self):
+        # To get the Sequential API working the final output layer must remain
+        # outputs[0], the loss one will always be outputs[1]
+        # Ensure the first output exists, and add loss as second one
+        assert len(self.outputs) == 1
+        if self.loss_layer_name is not None:
+            self.outputs.append(self.get_layer(name=self.loss_layer_name))
+
+    def add(self, layer):
+        super(keras.Sequential, self).add(layer)
+        self.output_layer_name = self.outputs[0].name
+        # Add back the 2nd output
+        self._add_loss_output()
+
+    def compile(self,
+                loss=None,
+                metrics=None,
+                *args,
+                **kwargs):
+        # transparently assign loss and metrics computation to the correct
+        # layers in case loss and metrics have been passed as lists
+        if not isinstance(loss, dict) and self.loss_layer_name is not None:
+            loss = {self.loss_layer_name: loss}
+
+        if not isinstance(metrics, dict) and self.loss_layer_name is not None:
+            metrics = {self.output_layer_name: metrics}
+        super(keras.Model, self).compile(*args,
+                                         loss=loss, metrics=metrics,
+                                         **kwargs)
+
+    def get_config(self):
+        config = {'loss_layer_name': self.loss_layer_name}
+        base_config = super(keras.Sequential, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
 
 def sequential_multilabel_model(n_layers, layer_size, output_size,
                                 input_size=None, batchnorm: bool = False,
@@ -20,6 +82,28 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                          keras.metrics.AUC(),
                                          keras.metrics.Recall()),
                                 learning_rate=2e-4):
+    """
+    A function to build a sequential model from simple parameters.
+
+    Parameters
+    ----------
+    n_layers
+    layer_size
+    output_size
+    input_size
+    batchnorm
+    dropout
+    output_bias
+    activation
+    loss
+    loss_kwargs
+    metrics
+    learning_rate
+
+    Returns
+    -------
+
+    """
     if input_size is not None:
         input_layer = [
             keras.Input(shape=(input_size,), sparse=False, dtype=bool)]
