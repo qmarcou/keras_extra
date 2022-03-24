@@ -27,26 +27,35 @@ class SequentialPreOutputLoss(keras.Sequential):
     def __init__(self, layers=None, name=None,
                  loss_layer_name: str = None):
         # Instantiate a Sequential model from parameters
-        super(keras.Sequential, self).__init__(layers=layers,
-                                               name=name)
-        # The only difference with a Sequential model is in the outputs
-        self.output_layer_name = self.outputs[0].name
         self.loss_layer_name = loss_layer_name
-        self._add_loss_output()
+        self._loss_layer_added = False
+        self.output_layer_name = None
+        super(SequentialPreOutputLoss, self).__init__(layers=layers,
+                                                      name=name)
+        # The only difference with a Sequential model is in the outputs
+        # if self.outputs is not None:
+        #     self.output_layer_name = self.outputs[0].name
+        #     self._add_loss_output()
 
     def _add_loss_output(self):
         # To get the Sequential API working the final output layer must remain
         # outputs[0], the loss one will always be outputs[1]
         # Ensure the first output exists, and add loss as second one
         assert len(self.outputs) == 1
+        # FIXME handle case where loss_layer is not yet present
         if self.loss_layer_name is not None:
             self.outputs.append(self.get_layer(name=self.loss_layer_name))
 
     def add(self, layer):
-        super(keras.Sequential, self).add(layer)
-        self.output_layer_name = self.outputs[0].name
-        # Add back the 2nd output
-        self._add_loss_output()
+        super(SequentialPreOutputLoss, self).add(layer)
+        if self.loss_layer_name is not None and \
+                layer.name == self.loss_layer_name:
+            self._loss_layer_added = True
+        if self.outputs is not None:
+            self.output_layer_name = self.outputs[0].name
+            # Add back the 2nd output
+            if self._loss_layer_added:
+                self._add_loss_output()
 
     def compile(self,
                 loss=None,
@@ -60,13 +69,13 @@ class SequentialPreOutputLoss(keras.Sequential):
 
         if not isinstance(metrics, dict) and self.loss_layer_name is not None:
             metrics = {self.output_layer_name: metrics}
-        super(keras.Model, self).compile(*args,
-                                         loss=loss, metrics=metrics,
-                                         **kwargs)
+        super(keras.Sequential, self).compile(*args,
+                                              loss=loss, metrics=metrics,
+                                              **kwargs)
 
     def get_config(self):
         config = {'loss_layer_name': self.loss_layer_name}
-        base_config = super(keras.Sequential, self).get_config()
+        base_config = super(SequentialPreOutputLoss, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 
@@ -141,7 +150,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
             keras.layers.Dense(units=output_size, name=loss_layer_name,
                                activation='linear'))
 
-        if isinstance(output_activation, keras.activations.Activation):
+        if isinstance(output_activation, keras.layers.Activation):
             layers.append(output_activation)
         elif isinstance(output_activation, str):
             layers.append(keras.layers.Activation(activation=activation,
@@ -149,7 +158,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
         else:
             raise ValueError("output_activation must be either a string or"
                              "an instance of keras.Activation")
-        model = SequentialPreOutputLoss(layers,
+
+        model = SequentialPreOutputLoss(layers=layers,
                                         loss_layer_name=loss_layer_name)
     else:
         layers.append(
