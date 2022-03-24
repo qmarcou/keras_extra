@@ -71,9 +71,10 @@ class SequentialPreOutputLoss(keras.Sequential):
 
 
 def sequential_multilabel_model(n_layers, layer_size, output_size,
+                                detached_loss=False,
                                 input_size=None, batchnorm: bool = False,
                                 dropout: float = 0, output_bias=None,
-                                activation='relu',
+                                activation='relu', output_activation='sigmoid',
                                 loss=BinaryCrossentropy,
                                 loss_kwargs={'from_logits': False},
                                 metrics=(keras_utils.metrics.Coverage(),
@@ -90,11 +91,13 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
     n_layers
     layer_size
     output_size
+    detached_loss
     input_size
     batchnorm
     dropout
     output_bias
     activation
+    output_activation
     loss
     loss_kwargs
     metrics
@@ -131,10 +134,28 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                                            + str(i)))
 
     layers = input_layer + hidden_layers
-    layers.append(
-        keras.layers.Dense(units=output_size, name="outputL_",
-                           activation='sigmoid'))
-    model = keras.Sequential(layers)
+
+    if detached_loss:
+        loss_layer_name = "denseL_" + str(n_layers)
+        layers.append(
+            keras.layers.Dense(units=output_size, name=loss_layer_name,
+                               activation='linear'))
+
+        if isinstance(output_activation, keras.activations.Activation):
+            layers.append(output_activation)
+        elif isinstance(output_activation, str):
+            layers.append(keras.layers.Activation(activation=activation,
+                                                  name="OutputL"))
+        else:
+            raise ValueError("output_activation must be either a string or"
+                             "an instance of keras.Activation")
+        model = SequentialPreOutputLoss(layers,
+                                        loss_layer_name=loss_layer_name)
+    else:
+        layers.append(
+            keras.layers.Dense(units=output_size, name="outputL_",
+                               activation='sigmoid'))
+        model = keras.Sequential(layers)
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
                   loss=loss(**loss_kwargs),
