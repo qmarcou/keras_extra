@@ -31,14 +31,16 @@ class TestSequentialPreOutputLoss(tf.test.TestCase):
                                     loss_layer_name="ZZZ")
         self.assertEqual(1, len(m.outputs))
 
-
     def test_compile(self):
         SequentialPreOutputLoss = models.SequentialPreOutputLoss
         inputL = keras.layers.InputLayer(input_shape=1, name="input")
-        output = keras.layers.Dense(1, name="output")
-        hidden = keras.layers.Dense(1, name="hidden")
-        a = SequentialPreOutputLoss(layers=[inputL, hidden, output],
+        outputL = keras.layers.Dense(1, name="output")
+        hiddenL = keras.layers.Dense(1, name="hidden")
+        m = SequentialPreOutputLoss(layers=[inputL, hiddenL, outputL],
                                     loss_layer_name="hidden")
-        a.compile()
-        a.compile(loss=keras.losses.BinaryCrossentropy(),
+        m.compile()
+        m.compile(loss=keras.losses.BinaryCrossentropy(),
                   metrics=keras.metrics.AUC())
+        m = SequentialPreOutputLoss(layers=[inputL, hiddenL, outputL],
+                                    loss_layer_name="ZZZ")
+        self.assertRaises(ValueError, m.compile)
