@@ -233,7 +233,6 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            hp.Int("units",
                                                   **hp_kwargs['units']),
                                            output_size=self.output_size,
-                                           input_size=None,
                                            batchnorm=batchnorm,
                                            dropout=dropout_rate,
                                            activation=hp.Choice('activation',
