@@ -30,6 +30,7 @@ class SequentialPreOutputLoss(keras.Sequential):
         self.loss_layer_name = loss_layer_name
         self._loss_layer_added = False
         self._loss_tensor_output = None
+        self._loss_layer: keras.layers.Layer = None
         self.output_layer_name = None
         super(SequentialPreOutputLoss, self).__init__(layers=layers,
                                                       name=name)
@@ -48,7 +49,11 @@ class SequentialPreOutputLoss(keras.Sequential):
         if self.loss_layer_name is not None and \
                 layer.name == self.loss_layer_name:
             self._loss_layer_added = True
-            self._loss_tensor_output = self.outputs[0]
+            self._loss_layer = layer
+            if self.outputs is not None:
+                # If no input shape has been given for the network output
+                # tensors are initialized at build time
+                self._loss_tensor_output = self.outputs[0]
 
         if self.outputs is not None:
             self.output_layer_name = layer.name
@@ -56,13 +61,23 @@ class SequentialPreOutputLoss(keras.Sequential):
             if self._loss_layer_added:
                 self._add_loss_output()
 
+    def build(self, input_shape=None):
+        super(SequentialPreOutputLoss, self).build(input_shape=input_shape)
+        # In case no Input or batch_shape had been provided output tensors
+        # had not been created
+        if self.loss_layer_name is not None and \
+                self._loss_tensor_output is None:
+            self.output_layer_name = self.layers[-1].name
+            self._loss_tensor_output = self._loss_layer.output
+            self._add_loss_output()
+
     def compile(self,
                 loss=None,
                 metrics=None,
                 *args,
                 **kwargs):
         # Check that the specified loss layer has been added to the model
-        if self.loss_layer_name is not None and  not self._loss_layer_added:
+        if self.loss_layer_name is not None and not self._loss_layer_added:
             raise ValueError("The layer with specified loss_layer_name has "
                              "not been added to the model")
 
@@ -122,7 +137,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
     """
     if input_size is not None:
         input_layer = [
-            keras.Input(shape=(input_size,), sparse=False, dtype=bool)]
+            keras.layers.InputLayer(input_shape=(input_size,),
+                                    sparse=False, dtype=bool)]
     else:
         input_layer = []
     hidden_layers = []
@@ -147,7 +163,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                                            + str(i)))
 
     layers = input_layer + hidden_layers
-
+    print(layers)
     if detached_loss:
         loss_layer_name = "denseL_" + str(n_layers)
         layers.append(

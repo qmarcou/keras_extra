@@ -40,6 +40,22 @@ class TestSequentialPreOutputLoss(tf.test.TestCase):
                                     loss_layer_name="output")
         m = SequentialPreOutputLoss(layers=[inputT, hiddenL, outputL],
                                     loss_layer_name="hidden")
+        # Test model instantiation without input layer
+        m = SequentialPreOutputLoss(layers=[outputL])
+        m = SequentialPreOutputLoss(layers=[outputL],
+                          loss_layer_name="output")
+        self.assertRaises(ValueError, m.build)
+        m.build(input_shape=(None, 1))
+        self.assertEqual(1, len(m.outputs))
+        m = SequentialPreOutputLoss(
+                          layers=[hiddenL, outputL],
+                          loss_layer_name="hidden")
+        m.build(input_shape=(None, 1))
+        self.assertEqual(2, len(m.outputs))
+        m = SequentialPreOutputLoss(layers=[hiddenL, outputL],
+                                loss_layer_name="output")
+        m.build(input_shape=(None, 1))
+        self.assertEqual(1, len(m.outputs))
 
     def test_compile(self):
         SequentialPreOutputLoss = models.SequentialPreOutputLoss
