@@ -61,6 +61,12 @@ class SequentialPreOutputLoss(keras.Sequential):
             if self._loss_layer_added:
                 self._add_loss_output()
 
+        # Require to rebuild the model to trigger correct filling of
+        # output_names and output_layers attributes from the functional API
+        # If not filled correctly the API will fail to map the loss_layer_name
+        # with the actual layer
+        self.built = False
+
     def build(self, input_shape=None):
         super(SequentialPreOutputLoss, self).build(input_shape=input_shape)
         # In case no Input or batch_shape had been provided output tensors
@@ -76,6 +82,16 @@ class SequentialPreOutputLoss(keras.Sequential):
                 metrics=None,
                 *args,
                 **kwargs):
+        if not self.built:
+            if self.input_shape is not None:
+                self.build()
+            else:
+                raise RuntimeError("Cannot build the model with unknown input "
+                                   "shape. Compiling SequentialPreOutputLoss "
+                                   "before the model is built will result in "
+                                   "errors at runtime. Build the model before "
+                                   "compiling.")
+
         # Check that the specified loss layer has been added to the model
         if self.loss_layer_name is not None and not self._loss_layer_added:
             raise ValueError("The layer with specified loss_layer_name has "
@@ -98,9 +114,9 @@ class SequentialPreOutputLoss(keras.Sequential):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-def sequential_multilabel_model(n_layers, layer_size, output_size,
+def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                 detached_loss=False,
-                                input_size=None, batchnorm: bool = False,
+                                batchnorm: bool = False,
                                 dropout: float = 0, output_bias=None,
                                 activation='relu', output_activation='sigmoid',
                                 loss=BinaryCrossentropy,
@@ -163,7 +179,6 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                                            + str(i)))
 
     layers = input_layer + hidden_layers
-    print(layers)
     if detached_loss:
         loss_layer_name = "denseL_" + str(n_layers)
         layers.append(
@@ -187,6 +202,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
                                activation='sigmoid'))
         model = keras.Sequential(layers)
 
+    model.build()
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
                   loss=loss(**loss_kwargs),
                   metrics=metrics)
