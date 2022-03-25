@@ -173,7 +173,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size,
         if isinstance(output_activation, keras.layers.Activation):
             layers.append(output_activation)
         elif isinstance(output_activation, str):
-            layers.append(keras.layers.Activation(activation=activation,
+            layers.append(keras.layers.Activation(activation=output_activation,
                                                   name="OutputL"))
         else:
             raise ValueError("output_activation must be either a string or"
