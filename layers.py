@@ -117,11 +117,11 @@ class ExtremumConstraintModule(Activation):
 
         return extr_act
 
-    def build(self, input_shape):
+    def build(self, input_shape:tf.TensorShape):
         # reshape with length 1 first dimension for broadcasting over
         # sample and possibly other dimensions
         # input_shape does not contain the batch size dimension
-        new_shape = tf.concat([tf.ones(shape=tf.shape(input_shape) - 1,
+        new_shape = tf.concat([tf.ones(shape=input_shape.rank - 1,
                                        dtype=tf.int32),
                                tf.fill(2, input_shape[-1])],
                               axis=0)

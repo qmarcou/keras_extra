@@ -71,3 +71,6 @@ class Test(tf.test.TestCase):
                                       [4.0, 3.0, 1.0, 3.0],
                                       [3.0, 3.0, 1.0, 3.0]]),
                             ecm_layer_max(input_logits))
+
+        # Test building with partially unknown input_shape
+        ecm_layer_max.build(input_shape=tf.TensorShape([None, 4]))
