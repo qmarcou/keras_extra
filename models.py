@@ -126,7 +126,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                          keras.metrics.Precision(),
                                          keras.metrics.AUC(),
                                          keras.metrics.Recall()),
-                                learning_rate=2e-4):
+                                learning_rate=2e-4,
+                                compile_kwargs: dict = {}):
     """
     A function to build a sequential model from simple parameters.
 
@@ -146,6 +147,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
     loss_kwargs
     metrics
     learning_rate
+    compile_kwargs
 
     Returns
     -------
@@ -205,7 +207,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
     model.build()
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
                   loss=loss(**loss_kwargs),
-                  metrics=metrics)
+                  metrics=metrics,
+                  **compile_kwargs)
     return model
 
 
