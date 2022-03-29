@@ -1,7 +1,7 @@
 """A collection of custom keras layers."""
 from __future__ import annotations
 import numpy as np
-from numpy import dtype
+from numpy import dtype, clip
 from scipy.sparse import coo_matrix, isspmatrix_coo, isspmatrix
 import tensorflow as tf
 from tensorflow import keras
@@ -9,6 +9,10 @@ from keras.layers import Activation
 from keras import activations
 from tensorflow.keras import backend as K
 from typing import Optional
+
+
+# Useful references:
+# https://www.tensorflow.org/guide/keras/custom_layers_and_models
 
 
 class ExtremumConstraintModule(Activation):
@@ -80,12 +84,29 @@ class ExtremumConstraintModule(Activation):
             self.adjacency_mat = tf.constant(adjacency_matrix,
                                              dtype=self.dtype)
             # Add ones on the diagonal to include considered class predictions
-            self.adjacency_mat = tf.add(self.adjacency_mat,
-                                        tf.eye(num_rows=adjacency_matrix
-                                               .shape[0],
-                                               num_columns=adjacency_matrix
-                                               .shape[0],
-                                               dtype=self.dtype))
+            if all(tf.equal(tf.linalg.diag_part(self.adjacency_mat), 0.0)):
+                self.adjacency_mat = tf.add(self.adjacency_mat,
+                                            tf.eye(num_rows=adjacency_matrix
+                                                   .shape[0],
+                                                   num_columns=adjacency_matrix
+                                                   .shape[0],
+                                                   dtype=self.dtype))
+            elif all(tf.equal(tf.linalg.diag_part(self.adjacency_mat), 0.0)):
+                pass
+            else:
+                raise ValueError("The diagonal of the adjacency matrix must "
+                                 "be either all 1s or all 0s.")
+            # Check that the provided adjacency matrix makes sense
+            mask = tf.logical_or(
+                tf.equal(self.adjacency_mat, 0.0),
+                tf.equal(self.adjacency_mat, 1.0))
+            if not tf.reduce_all(mask):
+                raise ValueError("Invalid adjacency matrix: the adjacency "
+                                 "matrix should only contain 0s and 1s. The "
+                                 "passed AM contains the following unique "
+                                 "values:"
+                                 + str(tf.unique(tf.reshape(self.adjacency_mat,
+                                                            shape=(-1,)))))
 
         extremum = str(extremum).lower()
         if extremum in ['min', 'minimum']:
@@ -117,7 +138,7 @@ class ExtremumConstraintModule(Activation):
 
         return extr_act
 
-    def build(self, input_shape:tf.TensorShape):
+    def build(self, input_shape: tf.TensorShape):
         # reshape with length 1 first dimension for broadcasting over
         # sample and possibly other dimensions
         # input_shape does not contain the batch size dimension
@@ -172,7 +193,7 @@ class DenseHierL2Reg(keras.layers.Dense):
                  hier_side: str,
                  sparse_adjacency: bool = False,
                  **kwargs):
-        super(keras.layers.Dense, self).__init__(**kwargs)
+        super(DenseHierL2Reg, self).__init__(**kwargs)
         self.sparse_adjacency = sparse_adjacency
         self.sparse_adjacency = adjacency_matrix
 
