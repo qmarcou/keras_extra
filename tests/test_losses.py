@@ -2,6 +2,7 @@ from unittest import TestCase
 
 import keras
 
+import keras_utils.models
 from keras_utils import losses
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.losses import Reduction
@@ -46,7 +47,23 @@ class Test(TestCase):
         # correctly tensors with unknown dimension (at model initialization
         # batch size is unknown and the shape of the first dimension is None
         # and the passed vectors are placeholders
-        model = keras.Sequential([keras.layers.Dense(1)])
+        wbce = losses.WeightedBinaryCrossentropy(class_weights=weights,
+                                                 from_logits=False,
+                                                 reduction=Reduction.SUM_OVER_BATCH_SIZE)
+        model = keras.Sequential([keras.layers.Dense(units=2,
+                                                     activation='sigmoid')])
+        model.compile(loss=wbce)
+        model.fit(x=[1, 2],
+                  y=y_true)
+        # Inside a more functional model
+        model = keras_utils.models.SequentialPreOutputLoss([
+            keras.layers.InputLayer(input_shape=(1,)),
+            keras.layers.Dense(units=2, activation='linear', name='dense'),
+            keras.layers.Activation(activation="sigmoid", name='output')
+        ], loss_layer_name='dense')
+        wbce = losses.WeightedBinaryCrossentropy(class_weights=weights,
+                                                 from_logits=True,
+                                                 reduction=Reduction.SUM_OVER_BATCH_SIZE)
         model.compile(loss=wbce)
         model.fit(x=[1, 2],
                   y=y_true)
