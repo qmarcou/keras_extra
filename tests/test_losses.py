@@ -10,12 +10,24 @@ from numpy.testing import assert_array_almost_equal
 import numpy as np
 import tensorflow as tf
 
-class Test(TestCase):
+
+class Test(tf.test.TestCase):
     def test_weighted_binary_crossentropy(self):
         wbc = losses.weighted_binary_crossentropy
         y_true = [[0, 1], [0, 0]]
-        y_pred = [[0.6, 0.4], [0.4, 0.6]] # shape nsamples*noutput
-        weights = [[1.0, 1.0], [1.0, 1.0]] # shape noutput*2
+        y_pred = [[0.6, 0.4], [0.4, 0.6]]  # shape nsamples*noutput
+        weights = [[1.0, 1.0], [1.0, 1.0]]  # shape noutput*2
+        assert_array_almost_equal(binary_crossentropy(y_true, y_pred,
+                                                      from_logits=False),
+                                  wbc(y_true, y_pred, weights,
+                                      from_logits=False))
+        # Check that the same weights can be broadcast
+        weights = 1.0
+        assert_array_almost_equal(binary_crossentropy(y_true, y_pred,
+                                                      from_logits=False),
+                                  wbc(y_true, y_pred, weights,
+                                      from_logits=False))
+        weights = [1.0, 1.0]
         assert_array_almost_equal(binary_crossentropy(y_true, y_pred,
                                                       from_logits=False),
                                   wbc(y_true, y_pred, weights,
@@ -31,6 +43,11 @@ class Test(TestCase):
                                       tf.constant(y_pred),
                                       tf.constant(weights),
                                       from_logits=False))
+
+    def test_WeightedBinaryCrossentropy(self):
+        y_true = [[0, 1], [0, 0]]
+        y_pred = [[0.6, 0.4], [0.4, 0.6]]  # shape nsamples*noutput
+        weights = [[1.0, 1.0], [1.0, 3.0]]
         # Check the wrapper loss class behavior
         wbce = losses.WeightedBinaryCrossentropy(class_weights=weights,
                                                  from_logits=False,
@@ -67,3 +84,23 @@ class Test(TestCase):
         model.compile(loss=wbce)
         model.fit(x=[1, 2],
                   y=y_true)
+
+
+class TestMCLoss(tf.test.TestCase):
+    def test_call(self):
+        adj_mat = np.array([[0, 0], [1, 0]])  # 1 is parent of 0
+        weights = np.array([[1.0, 1.0],
+                            [1.0, 1.0]])
+        mcl = losses.MCLoss(adjacency_matrix=adj_mat,
+                            from_logits=True,
+                            activation='linear',
+                            class_weights=weights)
+        wbc = losses.WeightedBinaryCrossentropy(from_logits=True,
+                                                class_weights=weights)
+
+        input_logits = tf.constant(np.array([[1.0, 2.0]]), dtype=tf.float32)
+        y_true = tf.constant(np.array([[0.0, 1.0]]), dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=input_logits, y_true=y_true),
+            mcl(y_pred=input_logits, y_true=y_true)
+        )

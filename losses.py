@@ -1,21 +1,28 @@
+from __future__ import annotations
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.framework import ops
 import keras.backend as K
 from tensorflow.python.keras.losses import LossFunctionWrapper
 from tensorflow.python.keras.utils import losses_utils
+import numpy as np
+from scipy.sparse import coo_matrix
 
 # Some useful ressources:
+# https://www.tensorflow.org/api_docs/python/tf/keras/losses/Loss
 # https://keras.io/getting_started/intro_to_keras_for_researchers/#tracking-losses-created-by-layers
 # https://stackoverflow.com/questions/61661739/tensorflow-2-loss-using-hidden-layers-output
 # https://www.tensorflow.org/api_docs/python/tf/keras/layers/Layer#add_loss
 # https://stackoverflow.com/questions/50063613/what-is-the-purpose-of-the-add-loss-function-in-keras
 # Multiple outputs to use compile loss argument and access y_true:
 # https://stackoverflow.com/questions/44036971/multiple-outputs-in-keras
+import keras_utils.layers
 
 
 def get_ndim(x: tf.Tensor):
     return tf.shape(x).shape[0]
+
 
 def weighted_binary_crossentropy_per_node(y_true, y_pred, class_weights,
                                           from_logits=False):
@@ -57,7 +64,7 @@ def weighted_binary_crossentropy_per_node(y_true, y_pred, class_weights,
                             tf.ones(shape=1, dtype=tf.int32)],
                            axis=0)
     zeros_y_true_dim = tf.zeros(shape=tf.rank(y_true),
-                                           dtype=tf.int32)
+                                dtype=tf.int32)
     # Add contribution for y_true==0
     weighted_cross_ent = tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
@@ -78,6 +85,7 @@ def weighted_binary_crossentropy_per_node(y_true, y_pred, class_weights,
         shape=tf.shape(y_true)),
         y_true)
     return weighted_cross_ent
+
 
 def weighted_binary_crossentropy(y_true, y_pred, class_weights,
                                  from_logits=False):
@@ -129,6 +137,7 @@ class WeightedBinaryCrossentropy(LossFunctionWrapper):
 
 
     """
+
     # TODO : implement per sample class weighting
     #  https://stackoverflow.com/questions/48315094/using-sample-weight-in-keras-for-sequence-labelling
     #  https://github.com/keras-team/keras/issues/2592
@@ -167,3 +176,74 @@ class WeightedBinaryCrossentropy(LossFunctionWrapper):
             from_logits=from_logits,
             class_weights=tf.constant(class_weights))
         self.from_logits = from_logits
+
+
+class MCLoss(keras.losses.Loss):
+    """
+    Implements MCLoss for hierarchical outcomes
+
+    Implements MCLoss proposed in Giunchiglia & Lukasiewicz, NeurIPS 2020
+    """
+
+    def __init__(self,
+                 adjacency_matrix: np.ndarray | coo_matrix,
+                 from_logits=False,
+                 reduction=losses_utils.ReductionV2.AUTO,
+                 name='MCLoss',
+                 class_weights=None,
+                 sparse_adjacency: bool = False,
+                 activation='linear'
+                 ):
+        """"""
+        super(MCLoss, self).__init__(
+            name=name,
+            reduction=reduction,
+        )
+        if class_weights is None:
+            self._class_weights = tf.constant([1.0])
+        else:
+            self._class_weights = class_weights
+        self._from_logits = from_logits
+        self._MCMact = keras_utils.layers.ExtremumConstraintModule(
+            activation=activation,
+            extremum='max',
+            adjacency_matrix=adjacency_matrix,
+            sparse_adjacency=sparse_adjacency
+        )
+
+    def call(self, y_true, y_pred):
+        """"""
+        if tf.is_tensor(y_pred) and tf.is_tensor(y_true):
+            y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(
+                y_pred, y_true)
+
+        # Compute positive examples custom cross-ent contributions
+        y_pred_true = tf.multiply(y_true, y_pred)
+        pos_mcm = self._MCMact(y_pred_true)
+        pos_mcloss = weighted_binary_crossentropy_per_node(
+            y_true=y_true,
+            y_pred=pos_mcm,
+            class_weights=self._class_weights,
+            from_logits=self._from_logits)
+        pos_mcloss = tf.multiply(y_true, pos_mcloss)
+        # Compute negative examples custom cross-ent contributions
+        neg_mcm = self._MCMact(y_pred)
+        neg_mcloss = weighted_binary_crossentropy_per_node(
+            y_true=y_true,
+            y_pred=neg_mcm,
+            class_weights=self._class_weights,
+            from_logits=self._from_logits)
+        neg_y_true = tf.ones_like(y_true) - y_true
+        neg_mcloss = tf.multiply(neg_y_true, neg_mcloss)
+        # Sum the two parts
+        mcloss = tf.add(pos_mcloss, neg_mcloss)
+
+        # ag_fn = autograph.tf_convert(self.fn, ag_ctx.control_status_ctx())
+        return K.mean(mcloss, axis=-1)
+
+    # def get_config(self):
+    #     config = {}
+    #     for k, v in six.iteritems(self._fn_kwargs):
+    #         config[k] = K.eval(v) if tf_utils.is_tensor_or_variable(v) else v
+    #     base_config = super(LossFunctionWrapper, self).get_config()
+    #     return dict(list(base_config.items()) + list(config.items()))
