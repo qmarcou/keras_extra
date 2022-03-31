@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.framework import ops
@@ -9,6 +8,7 @@ from tensorflow.python.keras.utils import losses_utils
 import numpy as np
 from scipy.sparse import coo_matrix
 import keras_utils.layers
+
 
 # Some useful ressources:
 # https://www.tensorflow.org/api_docs/python/tf/keras/losses/Loss
@@ -46,11 +46,18 @@ def weighted_binary_crossentropy_per_node(y_true, y_pred, class_weights,
     cross_ent = tf.reshape(cross_ent,
                            shape=newshape)
 
-    newshape = tf.concat([tf.ones(shape=1, dtype=tf.int32),
-                          tf.shape(class_weights)],  # get dynamic shape
-                         axis=0)
+    newshape = tf.concat([
+        tf.ones(shape=tf.rank(y_true) - tf.rank(class_weights) + 1
+                , dtype=tf.int32),
+        tf.shape(class_weights)],  # get dynamic shape
+        axis=0)
     class_weights = tf.reshape(class_weights,
                                shape=newshape)
+    # Check that class_weights last dimension is either 1 or 2
+    tf.assert_less(newshape[-1], tf.constant(3),
+                   message="class_weights last dimension must be 1 or 2, only"
+                           "binary outcomes are handled by the cross entropy"
+                           "function")
 
     # Perform the product to get a shape = `[batch_size, d0, .. dN, 2]`
     weighted_cross_ent_contrib = tf.multiply(cross_ent, class_weights)
@@ -76,10 +83,16 @@ def weighted_binary_crossentropy_per_node(y_true, y_pred, class_weights,
         neg_y_true)
 
     # Add contribution for y_true==1
+    # Enable broadcast in class_weights are the same for the 2 outcomes
+    # output ind is 0 if class_weights are the same, 1 if 2 different weights
+    output_ind = tf.multiply(
+        tf.ones(shape=1, dtype=tf.int32),
+        tf.shape(class_weights)[-1]-1
+    )
     weighted_cross_ent += tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
                  begin=tf.concat([zeros_y_true_dim,
-                                  tf.ones(shape=1, dtype=tf.int32)],
+                                  output_ind],
                                  axis=0),
                  size=slice_size),
         shape=tf.shape(y_true)),
@@ -110,7 +123,10 @@ def weighted_binary_crossentropy(y_true, y_pred, class_weights,
       y_true: Ground truth values. shape = `[batch_size, d0, .. dN]`.
       y_pred: The predicted values. shape = `[batch_size, d0, .. dN]`.
       class_weights: The weights to apply depending on the value of y_true.
-       shape = `[d0, .. dN, 2]`
+       shape = `[d0, .. dN, 2]. If the rank is lower than the expected one
+       broadcast will occur on the first dimensions. For instance a shape of
+       [2] denotes different weights for true and false outcomes identical for
+       every output node and will be interpreted as shape [1,..,1,2].
       from_logits: Whether `y_pred` is expected to be a logits tensor. By default,
         we assume that `y_pred` encodes a probability distribution.
 

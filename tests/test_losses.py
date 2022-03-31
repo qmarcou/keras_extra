@@ -1,7 +1,4 @@
-from unittest import TestCase
-
 import keras
-
 import keras_utils.models
 from keras_utils import losses
 from tensorflow.keras.losses import binary_crossentropy
@@ -32,6 +29,15 @@ class Test(tf.test.TestCase):
                                                       from_logits=False),
                                   wbc(y_true, y_pred, weights,
                                       from_logits=False))
+        # Check that class_weights with last dimension > 3 raises an exception
+        weights = [1.0, 1.0, 1.0]
+        self.assertRaises(tf.errors.InvalidArgumentError,
+                                  wbc,y_true, y_pred, weights,
+                                      from_logits=False)
+        weights = [[1.0, 1.0, 1.0],[1.0, 1.0, 1.0]]
+        self.assertRaises(tf.errors.InvalidArgumentError,
+                                  wbc,y_true, y_pred, weights,
+                                      from_logits=False)
         # Add more weight to positive examples
         weights = [[1.0, 1.0], [1.0, 3.0]]
         assert_array_almost_equal(np.array([1.83258105, 0.713558]),
@@ -94,7 +100,7 @@ class TestMCLoss(tf.test.TestCase):
         mcl = losses.MCLoss(adjacency_matrix=adj_mat,
                             from_logits=True,
                             activation='linear',
-                            class_weights=weights)
+                            class_weights=None)
         wbc = losses.WeightedBinaryCrossentropy(from_logits=True,
                                                 class_weights=weights)
 
