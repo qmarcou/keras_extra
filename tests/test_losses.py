@@ -138,6 +138,16 @@ class TestMCLoss(tf.test.TestCase):
             wbc(y_pred=np.array([[2.0, 2.0]]), y_true=y_true),
             mcl(y_pred=input_logits, y_true=y_true)
         )
+        # Test casting of inputs if they have mismatched dtypes
+        input_logits = tf.constant(input_logits, dtype=tf.float32)
+        y_true = tf.constant(np.array([[0.0, 0.0]]), dtype=tf.int8)
+        mcl(y_pred=input_logits, y_true=y_true)
+
+        # Test casting to the cross ent type when both input have another dtype
+        # TODO
+        # input_logits = tf.constant(np.array([[2.0, 1.0]]), dtype=tf.int8)
+        # y_true = tf.constant(np.array([[0.0, 0.0]]), dtype=tf.int8)
+        # mcl(y_pred=input_logits, y_true=y_true)
 
     def test_inmodel(self):
         adj_mat = np.array([[0, 0], [1, 0]])  # 1 is parent of 0

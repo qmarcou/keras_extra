@@ -253,6 +253,8 @@ class MCLoss(keras.losses.Loss):
         if tf.is_tensor(y_pred) and tf.is_tensor(y_true):
             y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(
                 y_pred, y_true)
+        # Cast y_true to the correct type for further computations
+        y_true = tf.cast(y_true, y_pred.dtype)
 
         # Compute positive examples custom cross-ent contributions
         y_pred_true = tf.multiply(y_true, y_pred)
@@ -262,6 +264,8 @@ class MCLoss(keras.losses.Loss):
             y_pred=pos_mcm,
             class_weights=self._class_weights,
             from_logits=self._from_logits)
+        # Now cast y_true to the correct type for cross-ent multiplication
+        y_true = tf.cast(y_true, pos_mcloss.dtype)
         pos_mcloss = tf.multiply(y_true, pos_mcloss)
         # Compute negative examples custom cross-ent contributions
         neg_mcm = self._MCMact(y_pred)
