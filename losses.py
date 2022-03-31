@@ -8,6 +8,7 @@ from tensorflow.python.keras.losses import LossFunctionWrapper
 from tensorflow.python.keras.utils import losses_utils
 import numpy as np
 from scipy.sparse import coo_matrix
+import keras_utils.layers
 
 # Some useful ressources:
 # https://www.tensorflow.org/api_docs/python/tf/keras/losses/Loss
@@ -17,7 +18,6 @@ from scipy.sparse import coo_matrix
 # https://stackoverflow.com/questions/50063613/what-is-the-purpose-of-the-add-loss-function-in-keras
 # Multiple outputs to use compile loss argument and access y_true:
 # https://stackoverflow.com/questions/44036971/multiple-outputs-in-keras
-import keras_utils.layers
 
 
 def get_ndim(x: tf.Tensor):
@@ -182,7 +182,8 @@ class MCLoss(keras.losses.Loss):
     """
     Implements MCLoss for hierarchical outcomes
 
-    Implements MCLoss proposed in Giunchiglia & Lukasiewicz, NeurIPS 2020
+    Implements MCLoss proposed in Giunchiglia & Lukasiewicz, NeurIPS 2020,
+    "Coherent Hierarchical Multi-Label Classification Networks"
     """
 
     def __init__(self,
@@ -194,7 +195,27 @@ class MCLoss(keras.losses.Loss):
                  sparse_adjacency: bool = False,
                  activation='linear'
                  ):
-        """"""
+        """
+
+        Parameters
+        ----------
+        adjacency_matrix: parent->child adjacency matrix (see
+            ExtremumConstraintModule "max" documentation for more details)
+        from_logits: bool whether binary cross entropy is computed from_logits. Note
+            that the trick of using logits on a Dense layer with sigmoid
+            will not work because an ECM layer is applied before "cross-entropy"
+            computation.
+        reduction: Loss reduction type. Defaults to AUTO
+        name: str
+        class_weights: class weights for the weighted binary cross-entropy
+            computation. Defaults to None, meaning equal unit weights for all
+            classes.
+        sparse_adjacency: bool whether sparse computation should be used for
+            the ECM layer.
+        activation: str or keras.Activation Activation to be applied in the ECM
+            layer. Defaults to 'linear'. 'linear' should be used if from_logits
+             is True.
+        """
         super(MCLoss, self).__init__(
             name=name,
             reduction=reduction,
@@ -241,6 +262,7 @@ class MCLoss(keras.losses.Loss):
         # ag_fn = autograph.tf_convert(self.fn, ag_ctx.control_status_ctx())
         return K.mean(mcloss, axis=-1)
 
+    # TODO: create serializing and reading functions
     # def get_config(self):
     #     config = {}
     #     for k, v in six.iteritems(self._fn_kwargs):

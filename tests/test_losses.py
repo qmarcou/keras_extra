@@ -98,9 +98,54 @@ class TestMCLoss(tf.test.TestCase):
         wbc = losses.WeightedBinaryCrossentropy(from_logits=True,
                                                 class_weights=weights)
 
-        input_logits = tf.constant(np.array([[1.0, 2.0]]), dtype=tf.float32)
         y_true = tf.constant(np.array([[0.0, 1.0]]), dtype=tf.float32)
+
+        input_logits = tf.constant(np.array([[1.0, 2.0]]), dtype=tf.float32)
         self.assertAllCloseAccordingToType(
             wbc(y_pred=input_logits, y_true=y_true),
             mcl(y_pred=input_logits, y_true=y_true)
         )
+        input_logits = tf.constant(np.array([[2.0, 1.0]]), dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=input_logits, y_true=y_true),
+            mcl(y_pred=input_logits, y_true=y_true)
+        )
+        y_true = tf.constant(np.array([[1.0, 1.0]]), dtype=tf.float32)
+        input_logits = tf.constant(np.array([[1.0, 2.0]]), dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=input_logits, y_true=y_true),
+            mcl(y_pred=input_logits, y_true=y_true)
+        )
+        input_logits = tf.constant(np.array([[2.0, 1.0]]), dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[2.0, 2.0]]), y_true=y_true),
+            mcl(y_pred=input_logits, y_true=y_true)
+        )
+        y_true = tf.constant(np.array([[0.0, 0.0]]), dtype=tf.float32)
+        input_logits = tf.constant(np.array([[1.0, 2.0]]), dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=input_logits, y_true=y_true),
+            mcl(y_pred=input_logits, y_true=y_true)
+        )
+        input_logits = tf.constant(np.array([[2.0, 1.0]]), dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[2.0, 2.0]]), y_true=y_true),
+            mcl(y_pred=input_logits, y_true=y_true)
+        )
+
+    def test_inmodel(self):
+        adj_mat = np.array([[0, 0], [1, 0]])  # 1 is parent of 0
+        weights = np.array([[1.0, 1.0],
+                            [1.0, 1.0]])
+        mcl = losses.MCLoss(adjacency_matrix=adj_mat,
+                            from_logits=True,
+                            activation='linear',
+                            class_weights=weights)
+        model = keras.models.Sequential(layers=[
+            keras.layers.Dense(units=2, activation="linear")
+        ])
+        model.compile(loss=mcl)
+        y_true = tf.constant(np.array([[1.0, 1.0]]), dtype=tf.float32)
+        x = np.random.random_sample(size=(1, 2))
+        model.fit(x=x,
+                  y=y_true)
