@@ -123,7 +123,7 @@ class ExtremumConstraintModule(Activation):
     def call(self, inputs, *args, **kwargs):
         # Compute raw activations
         act = self.activation(inputs)
-        act = tf.reshape(act, shape=self._act_new_shape)
+        act = tf.reshape(act, shape=self._act_new_shape, name='act_reshape')
 
         # Compute the product of activation and adjacency mat
         # if self.sparse_adjacency:
@@ -132,7 +132,7 @@ class ExtremumConstraintModule(Activation):
         # else:
         # multiply by 0/1 to select predictions from parents of a class if
         # max, and divide to cast values ot infinity if min
-        hier_act = self.mul_func(act, self.adjacency_mat)
+        hier_act = self.mul_func(act, self.adjacency_mat, name="select_hier")
         extr_act = self.extremum_func(hier_act, axis=-1, keepdims=False,
                                       name="ecm_collapse")
 
