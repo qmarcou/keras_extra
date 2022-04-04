@@ -9,10 +9,14 @@ from keras.layers import Activation
 from keras import activations
 from tensorflow.keras import backend as K
 from typing import Optional
-
+from enum import Enum
 
 # Useful references:
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models
+
+class Extremum (Enum):
+    Max = "max",
+    Min = "min"
 
 
 class ExtremumConstraintModule(Activation):
@@ -110,13 +114,13 @@ class ExtremumConstraintModule(Activation):
 
         extremum = str(extremum).lower()
         if extremum in ['min', 'minimum']:
-            self.mul_func = tf.divide
-            self.extremum_func = tf.reduce_min
-            self.extremum_str = "min"
+            self._mul_func = tf.divide
+            self._extremum_func = tf.reduce_min
+            self.extremum = Extremum.Min
         elif extremum in ['max', 'maximum']:
-            self.mul_func = tf.multiply
-            self.extremum_func = tf.reduce_max
-            self.extremum_str = "max"
+            self._mul_func = tf.multiply
+            self._extremum_func = tf.reduce_max
+            self.extremum = Extremum.Max
         else:
             raise ValueError("Invalid 'extremum' argument.")
 
@@ -165,7 +169,7 @@ class ExtremumConstraintModule(Activation):
             axis=0)
 
     def get_config(self):
-        config = {'extremum': self.extremum_str,
+        config = {'extremum': str(self.extremum),
                   'sparse': self.sparse_adjacency}
         base_config = super(ExtremumConstraintModule, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
