@@ -54,6 +54,7 @@ class ExtremumConstraintModule(Activation):
         self.activation = activations.get(activation)
         self.sparse_adjacency = sparse_adjacency
         self._act_new_shape = None
+        self._filtered_act_template = None
 
         # Check that provided matrix is square
         assert adjacency_matrix.shape[0] == adjacency_matrix.shape[1]
@@ -114,11 +115,9 @@ class ExtremumConstraintModule(Activation):
 
         extremum = str(extremum).lower()
         if extremum in ['min', 'minimum']:
-            self._mul_func = tf.divide
             self._extremum_func = tf.reduce_min
             self.extremum = Extremum.Min
         elif extremum in ['max', 'maximum']:
-            self._mul_func = tf.multiply
             self._extremum_func = tf.reduce_max
             self.extremum = Extremum.Max
         else:
@@ -134,11 +133,16 @@ class ExtremumConstraintModule(Activation):
         #     raise NotImplementedError("ECM computation using sparse operations"
         #                               "is not yet implemented.")
         # else:
-        # multiply by 0/1 to select predictions from parents of a class if
-        # max, and divide to cast values ot infinity if min
-        hier_act = self.mul_func(act, self.adjacency_mat, name="select_hier")
-        extr_act = self.extremum_func(hier_act, axis=-1, keepdims=False,
-                                      name="ecm_collapse")
+
+        # Select values from the hierarchy and add them to the template filled
+        # with 0 (if max) or np.inf (min)
+        hier_act = tf.where(condition=self.adjacency_mat,
+                            x=act,
+                            y=self._filtered_act_template,
+                            name="select_hier")
+
+        extr_act = self._extremum_func(hier_act, axis=-1, keepdims=False,
+                                       name="ecm_collapse")
 
         return extr_act
 
@@ -156,6 +160,7 @@ class ExtremumConstraintModule(Activation):
         #     self.adjacency_mat = tf.sparse.reshape(self.adjacency_mat,
         #                                            shape=new_shape)
         # else:
+        self.adjacency_mat = tf.cast(self.adjacency_mat, dtype=tf.bool)
         self.adjacency_mat = tf.reshape(self.adjacency_mat,
                                         shape=new_shape)
 
@@ -167,6 +172,15 @@ class ExtremumConstraintModule(Activation):
             tf.ones(shape=1, dtype=tf.int32),  # broadcasting dim
             input_shape[-1:]],  # output dimension
             axis=0)
+
+        # Create a base tensor to be filled with values
+        act_template_shape = tf.ones(shape=input_shape.rank + 1,
+                                     dtype=tf.int32)
+        if self.extremum == Extremum.Min:
+            self._filtered_act_template = tf.fill(value=np.Inf,
+                                                  dims=act_template_shape)
+        elif self.extremum == Extremum.Max:
+            self._filtered_act_template = tf.zeros(shape=act_template_shape)
 
     def get_config(self):
         config = {'extremum': str(self.extremum),
