@@ -289,3 +289,106 @@ class MCLoss(keras.losses.Loss):
     #         config[k] = K.eval(v) if tf_utils.is_tensor_or_variable(v) else v
     #     base_config = super(LossFunctionWrapper, self).get_config()
     #     return dict(list(base_config.items()) + list(config.items()))
+
+
+class TreeMinLoss(keras.losses.Loss):
+    """
+    Implements TreeMin loss for hierarchical outcomes
+
+    Implements TreeMin loss proposed in Li, Zhou, Wang, Li, Yang Preprint 2022,
+    "Deep Hierarchical Semantic Segmentation"
+    """
+
+    def __init__(self,
+                 adjacency_matrix: np.ndarray | coo_matrix,
+                 from_logits=False,
+                 reduction=losses_utils.ReductionV2.AUTO,
+                 name='TreeMinLoss',
+                 class_weights=None,
+                 sparse_adjacency: bool = False,
+                 activation='linear'
+                 ):
+        """
+
+        Parameters
+        ----------
+        adjacency_matrix: parent->child adjacency matrix (see
+            ExtremumConstraintModule "max" documentation for more details)
+        from_logits: bool whether binary cross entropy is computed from_logits. Note
+            that the trick of using logits on a Dense layer with sigmoid
+            will not work because an ECM layer is applied before "cross-entropy"
+            computation.
+        reduction: Loss reduction type. Defaults to AUTO
+        name: str
+        class_weights: class weights for the weighted binary cross-entropy
+            computation. Defaults to None, meaning equal unit weights for all
+            classes.
+        sparse_adjacency: bool whether sparse computation should be used for
+            the ECM layer.
+        activation: str or keras.Activation Activation to be applied in the ECM
+            layer. Defaults to 'linear'. 'linear' should be used if from_logits
+             is True.
+        """
+        super(MCLoss, self).__init__(
+            name=name,
+            reduction=reduction,
+        )
+        if class_weights is None:
+            self._class_weights = tf.constant([1.0])
+        else:
+            self._class_weights = class_weights
+        self._from_logits = from_logits
+        self._MaxCMact = keras_utils.layers.ExtremumConstraintModule(
+            activation=activation,
+            extremum='max',
+            adjacency_matrix=adjacency_matrix,
+            sparse_adjacency=sparse_adjacency
+        )
+        self._MinCMact = keras_utils.layers.ExtremumConstraintModule(
+            activation=activation,
+            extremum='min',
+            adjacency_matrix=adjacency_matrix.transpose(),
+            sparse_adjacency=sparse_adjacency
+        )
+
+    def call(self, y_true, y_pred):
+        """"""
+        if tf.is_tensor(y_pred) and tf.is_tensor(y_true):
+            y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(
+                y_pred, y_true)
+        # Cast y_true to the correct type for further computations
+        y_true = tf.cast(y_true, y_pred.dtype)
+
+        # Compute positive examples custom cross-ent contributions
+        #y_pred_true = tf.multiply(y_true, y_pred)
+        pos_mcm = self._MinCMact(y_pred)
+        pos_mcloss = weighted_binary_crossentropy_per_node(
+            y_true=y_true,
+            y_pred=pos_mcm,
+            class_weights=self._class_weights,
+            from_logits=self._from_logits)
+        # Now cast y_true to the correct type for cross-ent multiplication
+        y_true = tf.cast(y_true, pos_mcloss.dtype)
+        pos_mcloss = tf.multiply(y_true, pos_mcloss)
+        # Compute negative examples custom cross-ent contributions
+        neg_mcm = self._MaxCMact(y_pred)
+        neg_mcloss = weighted_binary_crossentropy_per_node(
+            y_true=y_true,
+            y_pred=neg_mcm,
+            class_weights=self._class_weights,
+            from_logits=self._from_logits)
+        neg_y_true = tf.ones_like(y_true) - y_true
+        neg_mcloss = tf.multiply(neg_y_true, neg_mcloss)
+        # Sum the two parts
+        mcloss = tf.add(pos_mcloss, neg_mcloss)
+
+        # ag_fn = autograph.tf_convert(self.fn, ag_ctx.control_status_ctx())
+        return K.mean(mcloss, axis=-1)
+
+    # TODO: create serializing and reading functions
+    # def get_config(self):
+    #     config = {}
+    #     for k, v in six.iteritems(self._fn_kwargs):
+    #         config[k] = K.eval(v) if tf_utils.is_tensor_or_variable(v) else v
+    #     base_config = super(LossFunctionWrapper, self).get_config()
+    #     return dict(list(base_config.items()) + list(config.items()))
