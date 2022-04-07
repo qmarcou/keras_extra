@@ -87,7 +87,7 @@ def weighted_binary_crossentropy_per_node(y_true, y_pred, class_weights,
     # output ind is 0 if class_weights are the same, 1 if 2 different weights
     output_ind = tf.multiply(
         tf.ones(shape=1, dtype=tf.int32),
-        tf.shape(class_weights)[-1]-1
+        tf.shape(class_weights)[-1] - 1
     )
     weighted_cross_ent += tf.multiply(tf.reshape(
         tf.slice(weighted_cross_ent_contrib,
@@ -257,27 +257,35 @@ class MCLoss(keras.losses.Loss):
         y_true = tf.cast(y_true, y_pred.dtype)
 
         # Compute positive examples custom cross-ent contributions
-        y_pred_true = tf.multiply(y_true, y_pred)
+        fill = tf.fill(value=-np.inf,
+                       dims=tf.ones(shape=tf.rank(y_true),
+                                    dtype=tf.int32))
+        y_pred_true = tf.where(condition=tf.cast(y_true, dtype=tf.bool),
+                               x=y_pred,
+                               y=fill,
+                               name="select_true_labels")
         pos_mcm = self._MCMact(y_pred_true)
-        pos_mcloss = weighted_binary_crossentropy_per_node(
-            y_true=y_true,
-            y_pred=pos_mcm,
-            class_weights=self._class_weights,
-            from_logits=self._from_logits)
+
         # Now cast y_true to the correct type for cross-ent multiplication
-        y_true = tf.cast(y_true, pos_mcloss.dtype)
-        pos_mcloss = tf.multiply(y_true, pos_mcloss)
+        fill = tf.zeros(shape=tf.ones(shape=tf.rank(y_true),
+                                      dtype=tf.int32),
+                        dtype=pos_mcm.dtype)
+        pos_mcm = tf.where(condition=tf.cast(y_true, dtype=tf.bool),
+                           x=pos_mcm,
+                           y=fill,
+                           name="select_true_mcm_contrib")
         # Compute negative examples custom cross-ent contributions
         neg_mcm = self._MCMact(y_pred)
-        neg_mcloss = weighted_binary_crossentropy_per_node(
+        neg_y_true = tf.ones_like(y_true) - y_true
+        neg_mcm = tf.multiply(neg_y_true, neg_mcm)
+        # Sum the two parts
+        mcm = tf.add(pos_mcm, neg_mcm)
+
+        mcloss = weighted_binary_crossentropy_per_node(
             y_true=y_true,
-            y_pred=neg_mcm,
+            y_pred=mcm,
             class_weights=self._class_weights,
             from_logits=self._from_logits)
-        neg_y_true = tf.ones_like(y_true) - y_true
-        neg_mcloss = tf.multiply(neg_y_true, neg_mcloss)
-        # Sum the two parts
-        mcloss = tf.add(pos_mcloss, neg_mcloss)
 
         # ag_fn = autograph.tf_convert(self.fn, ag_ctx.control_status_ctx())
         return K.mean(mcloss, axis=-1)
@@ -360,7 +368,7 @@ class TreeMinLoss(keras.losses.Loss):
         y_true = tf.cast(y_true, y_pred.dtype)
 
         # Compute positive examples custom cross-ent contributions
-        #y_pred_true = tf.multiply(y_true, y_pred)
+        # y_pred_true = tf.multiply(y_true, y_pred)
         pos_mcm = self._MinCMact(y_pred)
         pos_mcloss = weighted_binary_crossentropy_per_node(
             y_true=y_true,
