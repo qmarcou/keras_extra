@@ -368,30 +368,27 @@ class TreeMinLoss(keras.losses.Loss):
         y_true = tf.cast(y_true, y_pred.dtype)
 
         # Compute positive examples custom cross-ent contributions
-        # y_pred_true = tf.multiply(y_true, y_pred)
-        pos_mcm = self._MinCMact(y_pred)
-        pos_mcloss = weighted_binary_crossentropy_per_node(
-            y_true=y_true,
-            y_pred=pos_mcm,
-            class_weights=self._class_weights,
-            from_logits=self._from_logits)
+        pos_tm = self._MinCMact(y_pred)
+
         # Now cast y_true to the correct type for cross-ent multiplication
-        y_true = tf.cast(y_true, pos_mcloss.dtype)
-        pos_mcloss = tf.multiply(y_true, pos_mcloss)
+        y_true = tf.cast(y_true, pos_tm.dtype)
+        pos_tm = tf.multiply(y_true, pos_tm)
         # Compute negative examples custom cross-ent contributions
-        neg_mcm = self._MaxCMact(y_pred)
-        neg_mcloss = weighted_binary_crossentropy_per_node(
+        neg_tm = self._MaxCMact(y_pred)
+
+        neg_y_true = tf.ones_like(y_true) - y_true
+        neg_tm = tf.multiply(neg_y_true, neg_tm)
+        # Sum the two parts
+        tm = tf.add(pos_tm, neg_tm)
+
+        tmloss = weighted_binary_crossentropy_per_node(
             y_true=y_true,
-            y_pred=neg_mcm,
+            y_pred=tm,
             class_weights=self._class_weights,
             from_logits=self._from_logits)
-        neg_y_true = tf.ones_like(y_true) - y_true
-        neg_mcloss = tf.multiply(neg_y_true, neg_mcloss)
-        # Sum the two parts
-        mcloss = tf.add(pos_mcloss, neg_mcloss)
 
         # ag_fn = autograph.tf_convert(self.fn, ag_ctx.control_status_ctx())
-        return K.mean(mcloss, axis=-1)
+        return K.mean(tmloss, axis=-1)
 
     # TODO: create serializing and reading functions
     # def get_config(self):
