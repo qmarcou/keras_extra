@@ -136,6 +136,9 @@ class ExtremumConstraintModule(Activation):
 
         # Select values from the hierarchy and add them to the template filled
         # with 0 (if max) or np.inf (min)
+        # For a single layer network with large hierarchy (1300 items)
+        # using tf.where is 1.5 times slower than tf.multiply (tf.where took
+        # 22.6% of computation time, tf;multiply 15.2%)
         hier_act = tf.where(condition=self.adjacency_mat,
                             x=act,
                             y=self._filtered_act_template,
@@ -180,7 +183,8 @@ class ExtremumConstraintModule(Activation):
             self._filtered_act_template = tf.fill(value=np.Inf,
                                                   dims=act_template_shape)
         elif self.extremum == Extremum.Max:
-            self._filtered_act_template = tf.zeros(shape=act_template_shape)
+            self._filtered_act_template = tf.fill(value=-np.Inf,
+                                                  dims=act_template_shape)
 
     def get_config(self):
         config = {'extremum': str(self.extremum),
