@@ -329,7 +329,7 @@ class TreeMinLoss(keras.losses.Loss):
             layer. Defaults to 'linear'. 'linear' should be used if from_logits
              is True.
         """
-        super(MCLoss, self).__init__(
+        super(TreeMinLoss, self).__init__(
             name=name,
             reduction=reduction,
         )
