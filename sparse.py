@@ -18,18 +18,15 @@ import tensorflow as tf
 def expend_unit_dim(sp_tensor: tf.SparseTensor,
                     target_shape: tf.TensorShape) -> tf.SparseTensor:
     sp_shape = tf.shape(sp_tensor)
-    indices = tf.range(0, tf.shape(sp_shape)[0], delta=1)
-    # FIXME: iteration over tensor values prevents from being a tf.function
-    #   should try to use tf.sparse.map_fn and some logical tensor ops to get
-    #   rid of if statements
+    mask = tf.logical_and(tf.equal(sp_shape, 1), tf.greater(target_shape, 1))
+    indices = tf.where(condition=mask)
+    indices = tf.squeeze(indices, axis=1)  # check that this will always work
     for i in indices:
-        if target_shape[i] is not None:
-            if sp_shape[i] == 1 and target_shape[i] > 1:
-                sp_tensor = tf.sparse.concat(axis=i,
-                                             sp_inputs=[sp_tensor for j in
-                                                        tf.range(0,
-                                                                 target_shape[
-                                                                     i])])
+        sp_tensor = tf.sparse.concat(axis=i,
+                                     sp_inputs=[sp_tensor for j in
+                                                tf.range(0,
+                                                         target_shape[
+                                                             i])])
     return sp_tensor
 
 
