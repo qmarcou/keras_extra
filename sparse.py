@@ -1,5 +1,8 @@
 """Some useful math operation extensions for Tensorflow."""
+from __future__ import annotations
+
 import tensorflow as tf
+
 
 # Solutions based on the following links
 # https://github.com/tensorflow/tensorflow/issues/1241
@@ -63,3 +66,19 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
     else:
         sparse_t = tf.sparse.to_dense(sparse_t)
         return tf.sparse.from_dense(tf.multiply(sparse_t, dense_t))
+
+
+def reduce_min(sp_input: tf.SparseTensor,
+               axis=None,
+               keepdims=None,
+               output_is_sparse=False,
+               name=None) -> tf.SparseTensor | tf.Tensor:
+    sp_neg = tf.sparse.map_values(tf.math.negative, sp_input)
+    sp_min = tf.sparse.reduce_max(sp_neg, axis=axis, keepdims=keepdims,
+                                  output_is_sparse=True,
+                                  name=name)
+    res = tf.sparse.map_values(tf.math.negative, sp_min)
+    if output_is_sparse:
+        return res
+    else:
+        return tf.sparse.to_dense(res)

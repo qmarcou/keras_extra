@@ -45,3 +45,20 @@ class Test(tf.test.TestCase):
             self.assertShapeEqual(np.empty([2, 2, 2]),
                                   tf.sparse.to_dense(mul2))
             self.assertAllEqual(exp_out2, tf.sparse.to_dense(mul2))
+
+    def test_reduce_min(self):
+        # y = [[-7, ?]
+        #    [ 4, 3]
+        #    [ ?, ?]]
+        x = tf.sparse.SparseTensor([[0, 0, ], [1, 0], [1, 1]], [-7, 4, 3],
+                                   [3, 2])
+        y_sp = sparse.reduce_min(sp_input=x, axis=0, keepdims=False,
+                                 output_is_sparse=True)
+        self.assertIsInstance(y_sp, tf.SparseTensor)
+        self.assertAllEqual(np.array([-7, 3]), tf.sparse.to_dense(y_sp))
+        y_sp = sparse.reduce_min(sp_input=x, axis=1, keepdims=False,
+                                 output_is_sparse=True)
+        self.assertAllEqual(np.array([-7, 3, 0]), tf.sparse.to_dense(y_sp))
+        y_dense = sparse.reduce_min(sp_input=x, axis=1, keepdims=False,
+                                    output_is_sparse=False)
+        self.assertIsInstance(y_dense, tf.Tensor)
