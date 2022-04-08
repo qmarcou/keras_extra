@@ -14,7 +14,10 @@ from enum import Enum
 # Useful references:
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models
 
-class Extremum (Enum):
+import keras_utils.sparse
+
+
+class Extremum(Enum):
     Max = "max",
     Min = "min"
 
@@ -115,34 +118,50 @@ class ExtremumConstraintModule(Activation):
 
         extremum = str(extremum).lower()
         if extremum in ['min', 'minimum']:
-            self._extremum_func = tf.reduce_min
             self.extremum = Extremum.Min
         elif extremum in ['max', 'maximum']:
-            self._extremum_func = tf.reduce_max
             self.extremum = Extremum.Max
         else:
             raise ValueError("Invalid 'extremum' argument.")
+
+        if sparse_adjacency:
+            def _select_sparse(act):
+                return self.adjacency_mat.__mul__(act)
+
+            self._select_func = _select_sparse
+            if self.extremum == Extremum.Min:
+                self._extremum_func = keras_utils.sparse.reduce_min
+            else:
+                self._extremum_func = tf.sparse.reduce_max
+        else:
+            def _select_dense(act):
+                return tf.where(condition=self.adjacency_mat,
+                                x=act,
+                                y=self._filtered_act_template,
+                                name="select_hier")
+
+            self._select_func = _select_dense
+            if self.extremum == Extremum.Min:
+                self._extremum_func = tf.reduce_min
+            else:
+                self._extremum_func = tf.reduce_max
 
     def call(self, inputs, *args, **kwargs):
         # Compute raw activations
         act = self.activation(inputs)
         act = tf.reshape(act, shape=self._act_new_shape, name='act_reshape')
-
-        # Compute the product of activation and adjacency mat
-        # if self.sparse_adjacency:
-        #     raise NotImplementedError("ECM computation using sparse operations"
-        #                               "is not yet implemented.")
-        # else:
-
+        # _select_func function:
+        # if not sparse:
         # Select values from the hierarchy and add them to the template filled
-        # with 0 (if max) or np.inf (min)
+        # with -np.inf (if max) or np.inf (min)
         # For a single layer network with large hierarchy (1300 items)
         # using tf.where is 1.5 times slower than tf.multiply (tf.where took
-        # 22.6% of computation time, tf;multiply 15.2%)
-        hier_act = tf.where(condition=self.adjacency_mat,
-                            x=act,
-                            y=self._filtered_act_template,
-                            name="select_hier")
+        # 22.6% of computation time, tf.multiply 15.2%)
+        # if sparse:
+        # use a sparse dense multiplication between activation tensor and
+        # the adjacency matrix. The sparse.reduce_xxx functions overlook
+        # implicit 0s in their computation so there is no need to use np.inf
+        hier_act = self._select_func(act)
 
         extr_act = self._extremum_func(hier_act, axis=-1, keepdims=False,
                                        name="ecm_collapse")
