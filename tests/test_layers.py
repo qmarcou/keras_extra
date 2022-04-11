@@ -80,3 +80,9 @@ class Test(tf.test.TestCase):
 
             # Test building with partially unknown input_shape
             ecm_layer_max.build(input_shape=tf.TensorShape([None, 4]))
+            if is_sparse_mat:
+                self.assertShapeEqual(np.zeros(shape=[1, 4, 4]),
+                                  tf.sparse.to_dense(ecm_layer_max.adjacency_mat))
+            else:
+                self.assertShapeEqual(np.zeros(shape=[1, 4, 4]),
+                                          ecm_layer_max.adjacency_mat)

@@ -12,10 +12,9 @@ from typing import Optional
 from enum import Enum
 import keras_utils.sparse
 
+
 # Useful references:
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models
-
-
 
 
 class Extremum(Enum):
@@ -75,7 +74,7 @@ class ExtremumConstraintModule(Activation):
                 indices=np.mat([adjacency_matrix.row,
                                 adjacency_matrix.col])
                     .transpose(),
-                values=tf.cast(adjacency_matrix.data,dtype=self.dtype),
+                values=tf.cast(adjacency_matrix.data, dtype=self.dtype),
                 dense_shape=adjacency_matrix.shape)
 
             # reorder in row major as advised in tf docs
@@ -127,25 +126,14 @@ class ExtremumConstraintModule(Activation):
             raise ValueError("Invalid 'extremum' argument.")
 
         if sparse_adjacency:
-            def _select_sparse(act):
-                return keras_utils.sparse.sparse_dense_multiply(
-                    self.adjacency_mat,
-                    act,
-                    keep_sparse=True)
+            self._select_func = self._select_sparse
 
-            self._select_func = _select_sparse
             if self.extremum == Extremum.Min:
                 self._extremum_func = keras_utils.sparse.reduce_min
             else:
                 self._extremum_func = tf.sparse.reduce_max
         else:
-            def _select_dense(act):
-                return tf.where(condition=self.adjacency_mat,
-                                x=act,
-                                y=self._filtered_act_template,
-                                name="select_hier")
-
-            self._select_func = _select_dense
+            self._select_func = self._select_dense
             if self.extremum == Extremum.Min:
                 self._extremum_func = tf.reduce_min
             else:
@@ -155,6 +143,8 @@ class ExtremumConstraintModule(Activation):
         # Compute raw activations
         act = self.activation(inputs)
         act = tf.reshape(act, shape=self._act_new_shape, name='act_reshape')
+
+        # TODO create an Adj mat working copy for sparse
         # _select_func function:
         # if not sparse:
         # Select values from the hierarchy and add them to the template filled
@@ -166,7 +156,8 @@ class ExtremumConstraintModule(Activation):
         # use a sparse dense multiplication between activation tensor and
         # the adjacency matrix. The sparse.reduce_xxx functions overlook
         # implicit 0s in their computation so there is no need to use np.inf
-        hier_act = self._select_func(act)
+        hier_act = self._select_func(act,
+                                     adj_mat=self.adjacency_mat)
 
         extr_act = self._extremum_func(hier_act, axis=-1, keepdims=False,
                                        name="ecm_collapse")
@@ -177,7 +168,8 @@ class ExtremumConstraintModule(Activation):
         # reshape with length 1 first dimension for broadcasting over
         # sample and possibly other dimensions
         # input_shape does not contain the batch size dimension
-        new_shape = tf.concat([tf.ones(shape=input_shape.rank - 1,
+        new_shape = tf.concat([tf.ones(shape=tf.maximum(input_shape.rank - 1,
+                                                        1),
                                        dtype=tf.int32),
                                tf.fill(dims=2, value=input_shape[-1])],
                               axis=0)
@@ -227,8 +219,22 @@ class ExtremumConstraintModule(Activation):
     def get_config(self):
         config = {'extremum': str(self.extremum),
                   'sparse': self.sparse_adjacency}
+        # FIXME reshape adj_mat to output it
         base_config = super(ExtremumConstraintModule, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+    def _select_sparse(self, act, adj_mat):
+        adj_mat_exp = keras_utils.sparse.expend_single_dim(
+            adj_mat,
+            axis=0,
+            times=tf.squeeze(tf.slice(tf.shape(act), begin=(0,), size=(1,))))
+        return adj_mat_exp.__mul__(act)
+
+    def _select_dense(self, act, adj_mat):
+        return tf.where(condition=adj_mat,
+                        x=act,
+                        y=self._filtered_act_template,
+                        name="select_hier")
 
 
 class DenseHierL2Reg(keras.layers.Dense):
