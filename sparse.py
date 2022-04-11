@@ -13,20 +13,35 @@ import tensorflow as tf
 # https://github.com/tensorflow/tensorflow/issues/38429
 # https://github.com/tensorflow/tensorflow/issues/33336
 
+@tf.function
+def expend_single_dim(sp_tensor: tf.sparse.SparseTensor,
+                      times: int,
+                      axis: int):
+    out_tensor = sp_tensor
+    for j in tf.range(start=0, limit=times - 1, delta=1):
+        out_tensor = tf.sparse.concat(axis=axis,
+                                      sp_inputs=[out_tensor, sp_tensor])
 
-# @tf.function
+    return out_tensor
+
+
+#@tf.function
 def expend_unit_dim(sp_tensor: tf.SparseTensor,
                     target_shape: tf.TensorShape) -> tf.SparseTensor:
-    sp_shape = tf.shape(sp_tensor)
-    mask = tf.logical_and(tf.equal(sp_shape, 1), tf.greater(target_shape, 1))
+    if isinstance(target_shape, tf.TensorShape) and \
+            not target_shape.is_fully_defined():
+        return sp_tensor
+    sp_shape = sp_tensor.dense_shape
+    sp_rank = tf.rank(sp_tensor)
+    mask: tf.Tensor = tf.logical_and(tf.equal(sp_shape, 1),
+                                     tf.greater(target_shape, 1))
     indices = tf.where(condition=mask)
     indices = tf.squeeze(indices, axis=1)  # check that this will always work
-    for i in indices:
-        sp_tensor = tf.sparse.concat(axis=i,
-                                     sp_inputs=[sp_tensor for j in
-                                                tf.range(0,
-                                                         target_shape[
-                                                             i])])
+    for i in tf.range(0, sp_rank, delta=1):
+        if mask[i]:
+            sp_tensor = expend_single_dim(sp_tensor,
+                                          times=target_shape[i],
+                                          axis=int(i))
     return sp_tensor
 
 
@@ -58,7 +73,7 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
     """
     # Assert compatible shapes
     if keep_sparse:
-        sparse_t = expend_unit_dim(sparse_t, dense_t.shape)
+        sparse_t = expend_unit_dim(sparse_t, tf.shape(dense_t))
         return sparse_t.__mul__(dense_t)
     else:
         sparse_t = tf.sparse.to_dense(sparse_t)

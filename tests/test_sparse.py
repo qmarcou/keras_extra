@@ -6,6 +6,58 @@ import numpy as np
 
 # https://medium.com/@burnmg/software-testing-in-tensorflow-2-0-33c440ca908c
 class Test(tf.test.TestCase):
+    def test_expend_single_unit_dim(self):
+        sp_t = tf.SparseTensor([[0, 0], [1, 1]],
+                               tf.ones(2, dtype=tf.float32),
+                               [2, 2])
+        sp_t = tf.sparse.expand_dims(sp_t, axis=0)
+        sp_t_exp = sparse.expend_single_dim(sp_t,
+                                            times=2,
+                                            axis=0)
+        exp_out = np.array([[[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]]])
+        self.assertIsInstance(sp_t_exp, tf.SparseTensor)
+        self.assertShapeEqual(np.empty([2, 2, 2]),
+                              tf.sparse.to_dense(sp_t_exp))
+        self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
+
+        sp_t_exp = sparse.expend_single_dim(sp_t,
+                                            times=3,
+                                            axis=0)
+        exp_out = np.array([[[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]]])
+        self.assertIsInstance(sp_t_exp, tf.SparseTensor)
+        self.assertShapeEqual(np.empty([3, 2, 2]),
+                              tf.sparse.to_dense(sp_t_exp))
+        self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
+        # Test on a non unit dim
+        sp_t_exp = sparse.expend_single_dim(sp_t_exp,
+                                            times=2,
+                                            axis=0)
+        exp_out = np.array([[[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]]])
+        self.assertIsInstance(sp_t_exp, tf.SparseTensor)
+        self.assertShapeEqual(np.empty([6, 2, 2]),
+                              tf.sparse.to_dense(sp_t_exp))
+        self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
+
+        # Test passing tensor arguments
+        sp_t_exp = sparse.expend_single_dim(sp_t,
+                                            times=tf.constant(3),
+                                            axis=int(tf.constant(0)))
+        exp_out = np.array([[[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]],
+                            [[1., 0.], [0., 1.]]])
+        self.assertIsInstance(sp_t_exp, tf.SparseTensor)
+        self.assertShapeEqual(np.empty([3, 2, 2]),
+                              tf.sparse.to_dense(sp_t_exp))
+        self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
+
     def test_expend_unit_dim(self):
         sp_t = tf.SparseTensor([[0, 0], [1, 1]],
                                tf.ones(2, dtype=tf.float32),
