@@ -143,6 +143,11 @@ class ExtremumConstraintModule(Activation):
             if self.extremum == Extremum.Min:
                 self._extremum_func = keras_utils.sparse.reduce_min
             else:
+                # sparse.reduce_max is very slow, here a github issue with
+                # hints with how to optimize it:
+                # https://github.com/tensorflow/tensorflow/issues/32763
+                # this issue is about reduce_sum but could be adapted using
+                # tf.math.segment_max instead of tf.math.segment_sum
                 self._extremum_func = tf.sparse.reduce_max
         else:
             self._select_func = self._select_dense
@@ -263,9 +268,6 @@ class ExtremumConstraintModule(Activation):
         base_config = super(ExtremumConstraintModule, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-    def _select_sparse(self, act, adj_mat):
-        return adj_mat.__mul__(act)
-
     def _is_adj_mat_exp_correct_size(self, act):
         act_shape = tf.shape(act, out_type=tf.int64)
         return tf.squeeze(tf.slice(tf.equal(act_shape, self._adj_mat_wc_shape),
@@ -292,6 +294,9 @@ class ExtremumConstraintModule(Activation):
                         x=act,
                         y=self._filtered_act_template,
                         name="select_hier")
+
+    def _select_sparse(self, act, adj_mat):
+        return adj_mat.__mul__(act)
 
 
 class DenseHierL2Reg(keras.layers.Dense):
