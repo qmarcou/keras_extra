@@ -127,8 +127,19 @@ class ExtremumConstraintModule(Activation):
 
         if sparse_adjacency:
             self._select_func = self._select_sparse
-            # Create a placeholder for a working copy of adj_mat
-            self._adj_mat_exp = None
+            # Create a placeholders for a working copy of the adjacency matrix
+            # that can be reshaped according to batch size
+            # Since SparseTensors cannot be used as tf.Variables or other TF
+            # mutable types, I have to define the different components of the
+            # sparseTensor (values, indices, shape) as variables and
+            # re-instantiate a sparseTensor everytime
+            # Values is the only placeholder that can be instantiated here as
+            # it must be a vector
+            self._adj_mat_wc_values = tf.Variable(self.adjacency_mat.values,
+                                                  shape=(None,),
+                                                  trainable=False)
+            self._adj_mat_wc_indices = None
+            self._adj_mat_wc_shape = None
             if self.extremum == Extremum.Min:
                 self._extremum_func = keras_utils.sparse.reduce_min
             else:
@@ -157,18 +168,16 @@ class ExtremumConstraintModule(Activation):
         # use a sparse dense multiplication between activation tensor and
         # the adjacency matrix. The sparse.reduce_xxx functions overlook
         # implicit 0s in their computation so there is no need to use np.inf
-        tf.print("call")
         if self.sparse_adjacency:
-            adj_mat_exp = tf.cond(
+            adj_mat = tf.cond(
                 self._is_adj_mat_exp_correct_size(act),
                 true_fn=self._get_adj_mat_exp,
                 false_fn=lambda: self._update_adj_mat_exp_first_dim(act),
-                name='blurbz'
+                name='cond_update_wc_adj_mat'
             )
-            with tf.init_scope():
-                self._adj_mat_exp = adj_mat_exp
+
             hier_act = self._select_func(act,
-                                         adj_mat=adj_mat_exp)
+                                         adj_mat=adj_mat)
         else:
             hier_act = self._select_func(act,
                                          adj_mat=self.adjacency_mat)
@@ -218,7 +227,23 @@ class ExtremumConstraintModule(Activation):
             self.adjacency_mat = keras_utils.sparse.expend_unit_dim(
                 self.adjacency_mat,
                 self._act_new_shape)
-            self._adj_mat_exp = self.adjacency_mat
+            # Initialise the variable adj mat placeholder
+            # As the number of non zero values/indices may vary the first
+            # dimension must be None so as to allow to assign different length
+            # values/indices
+            self._adj_mat_wc_shape = tf.Variable(
+                initial_value=self.adjacency_mat.dense_shape,
+                shape=tf.rank(self.adjacency_mat),
+                trainable=False,
+                dtype=tf.int64
+            )
+            self._adj_mat_wc_indices = tf.Variable(
+                initial_value=self.adjacency_mat.indices,
+                shape=(None, tf.rank(self.adjacency_mat)),
+                trainable=False
+            )
+            # update values initialized in __init__
+            self._adj_mat_wc_values.assign(self.adjacency_mat.values)
 
         # Create a base tensor to be filled with values
         if not self.sparse_adjacency:
@@ -241,29 +266,26 @@ class ExtremumConstraintModule(Activation):
     def _select_sparse(self, act, adj_mat):
         return adj_mat.__mul__(act)
 
-    @tf.function
     def _is_adj_mat_exp_correct_size(self, act):
-        tf.print("is correct size")
-        act_shape = tf.shape(act)
-        tf.print(act_shape)
-        adj_mat_exp_shape = tf.shape(self._adj_mat_exp)
-        tf.print(adj_mat_exp_shape)
-        return tf.squeeze(tf.slice(tf.equal(act_shape, adj_mat_exp_shape),
+        act_shape = tf.shape(act, out_type=tf.int64)
+        return tf.squeeze(tf.slice(tf.equal(act_shape, self._adj_mat_wc_shape),
                                    begin=(0,),
                                    size=(1,)))
 
-    @tf.function
     def _update_adj_mat_exp_first_dim(self, act):
-        tf.print("update dim")
-        return keras_utils.sparse.expend_single_dim(
+        sparse_template = keras_utils.sparse.expend_single_dim(
             self.adjacency_mat,
             axis=0,
             times=tf.squeeze(tf.slice(tf.shape(act), begin=(0,), size=(1,))))
+        self._adj_mat_wc_shape.assign(sparse_template.dense_shape)
+        self._adj_mat_wc_values.assign(sparse_template.values)
+        self._adj_mat_wc_indices.assign(sparse_template.indices)
+        return self._get_adj_mat_exp()
 
-    @tf.function
     def _get_adj_mat_exp(self):
-        tf.print("pass as is")
-        return self._adj_mat_exp
+        return tf.SparseTensor(values=self._adj_mat_wc_values,
+                               indices=self._adj_mat_wc_indices,
+                               dense_shape=self._adj_mat_wc_shape)
 
     def _select_dense(self, act, adj_mat):
         return tf.where(condition=adj_mat,
