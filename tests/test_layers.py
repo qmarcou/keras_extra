@@ -1,4 +1,6 @@
 from unittest import TestCase
+
+import keras
 import tensorflow as tf
 from keras_utils import layers
 import numpy as np
@@ -82,7 +84,17 @@ class Test(tf.test.TestCase):
             ecm_layer_max.build(input_shape=tf.TensorShape([None, 4]))
             if is_sparse_mat:
                 self.assertShapeEqual(np.zeros(shape=[1, 4, 4]),
-                                  tf.sparse.to_dense(ecm_layer_max.adjacency_mat))
+                                      tf.sparse.to_dense(
+                                          ecm_layer_max.adjacency_mat))
             else:
                 self.assertShapeEqual(np.zeros(shape=[1, 4, 4]),
-                                          ecm_layer_max.adjacency_mat)
+                                      ecm_layer_max.adjacency_mat)
+
+            # Now try to compile and fit
+            model = keras.Sequential([keras.layers.Input(shape=(4,)),
+                                      ecm_layer_max])
+            model.compile()
+            y = np.array([[4.0, 3.0, -1.0, 2.0],
+                          [4.0, 3.0, -1.0, 3.0],
+                          [3.0, 3.0, -1.0, 3.0]])
+            model.fit(x=input_logits, y=y, verbose=False)
