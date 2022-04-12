@@ -127,7 +127,8 @@ class ExtremumConstraintModule(Activation):
 
         if sparse_adjacency:
             self._select_func = self._select_sparse
-
+            # Create a placeholder for a working copy of adj_mat
+            self._adj_mat_exp = None
             if self.extremum == Extremum.Min:
                 self._extremum_func = keras_utils.sparse.reduce_min
             else:
@@ -156,8 +157,21 @@ class ExtremumConstraintModule(Activation):
         # use a sparse dense multiplication between activation tensor and
         # the adjacency matrix. The sparse.reduce_xxx functions overlook
         # implicit 0s in their computation so there is no need to use np.inf
-        hier_act = self._select_func(act,
-                                     adj_mat=self.adjacency_mat)
+        tf.print("call")
+        if self.sparse_adjacency:
+            adj_mat_exp = tf.cond(
+                self._is_adj_mat_exp_correct_size(act),
+                true_fn=self._get_adj_mat_exp,
+                false_fn=lambda: self._update_adj_mat_exp_first_dim(act),
+                name='blurbz'
+            )
+            with tf.init_scope():
+                self._adj_mat_exp = adj_mat_exp
+            hier_act = self._select_func(act,
+                                         adj_mat=adj_mat_exp)
+        else:
+            hier_act = self._select_func(act,
+                                         adj_mat=self.adjacency_mat)
 
         extr_act = self._extremum_func(hier_act, axis=-1, keepdims=False,
                                        name="ecm_collapse")
@@ -204,6 +218,7 @@ class ExtremumConstraintModule(Activation):
             self.adjacency_mat = keras_utils.sparse.expend_unit_dim(
                 self.adjacency_mat,
                 self._act_new_shape)
+            self._adj_mat_exp = self.adjacency_mat
 
         # Create a base tensor to be filled with values
         if not self.sparse_adjacency:
@@ -224,11 +239,31 @@ class ExtremumConstraintModule(Activation):
         return dict(list(base_config.items()) + list(config.items()))
 
     def _select_sparse(self, act, adj_mat):
-        adj_mat_exp = keras_utils.sparse.expend_single_dim(
-            adj_mat,
+        return adj_mat.__mul__(act)
+
+    @tf.function
+    def _is_adj_mat_exp_correct_size(self, act):
+        tf.print("is correct size")
+        act_shape = tf.shape(act)
+        tf.print(act_shape)
+        adj_mat_exp_shape = tf.shape(self._adj_mat_exp)
+        tf.print(adj_mat_exp_shape)
+        return tf.squeeze(tf.slice(tf.equal(act_shape, adj_mat_exp_shape),
+                                   begin=(0,),
+                                   size=(1,)))
+
+    @tf.function
+    def _update_adj_mat_exp_first_dim(self, act):
+        tf.print("update dim")
+        return keras_utils.sparse.expend_single_dim(
+            self.adjacency_mat,
             axis=0,
             times=tf.squeeze(tf.slice(tf.shape(act), begin=(0,), size=(1,))))
-        return adj_mat_exp.__mul__(act)
+
+    @tf.function
+    def _get_adj_mat_exp(self):
+        tf.print("pass as is")
+        return self._adj_mat_exp
 
     def _select_dense(self, act, adj_mat):
         return tf.where(condition=adj_mat,
