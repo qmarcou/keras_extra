@@ -98,6 +98,9 @@ class Test(tf.test.TestCase):
                                   tf.sparse.to_dense(mul2))
             self.assertAllEqual(exp_out2, tf.sparse.to_dense(mul2))
 
+    def reduce_max_single_axis(self):
+        pass
+
     def test_reduce_min(self):
         # y = [[-7, ?]
         #    [ 4, 3]

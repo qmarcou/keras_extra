@@ -21,13 +21,13 @@ def expend_single_dim(sp_tensor: tf.sparse.SparseTensor,
     for j in tf.range(start=0, limit=times - 1, delta=1):
         out_tensor = tf.sparse.concat(axis=axis,
                                       sp_inputs=[out_tensor, sp_tensor])
-
     return out_tensor
 
 
 #@tf.function
 def expend_unit_dim(sp_tensor: tf.SparseTensor,
                     target_shape: tf.TensorShape) -> tf.SparseTensor:
+    #FIXME find a way to make it work with autograph
     if isinstance(target_shape, tf.TensorShape) and \
             not target_shape.is_fully_defined():
         return sp_tensor
@@ -79,6 +79,42 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
         sparse_t = tf.sparse.to_dense(sparse_t)
         return tf.sparse.from_dense(tf.multiply(sparse_t, dense_t))
 
+#@tf.function
+def reduce_max_single_axis(sp_input: tf.SparseTensor,
+               axis:int,
+               keepdims=None,
+               ordered=False,
+               output_is_sparse=False,
+               name=None):
+    """
+    math.(unsorted_)segment_sum.
+
+    Args:
+        sp: rank 2 sparse tensor
+        axis: int, axis along which to sum
+        ordered: if True, other axis indices are assumed to be ascending.
+
+    Returns:
+        rank 1 dense tensor equivalent to tf.sparse.reduce_sum(sp, axis=axis)
+    """
+    # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
+    if ordered:
+        return tf.math.segment_max(sp_input.values, sp_input.indices[:, axis])
+    else:
+        # should remove this option since I'll need to map back indices to
+        # values and I would need the order
+        return tf.math.unsorted_segment_max(sp_input.values,
+                                            sp_input.indices[:, axis],
+                                            sp_input.dense_shape[axis])
+    # compute indices using tf.unique ?
+    if keepdims:
+        # easiest case build sparse tensor with same shape
+        return tf.SparseTensor()
+    else:
+        # "slice" indices and shape tensor to exclude single dimension (use
+        # tf.gather with tf.where(tf.not_equal(range(0,rank),axis))
+        pass
+    tf.sparse.s
 
 def reduce_min(sp_input: tf.SparseTensor,
                axis=None,
