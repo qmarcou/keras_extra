@@ -172,9 +172,21 @@ class TestMCLoss(tf.test.TestCase):
 
 class TestTreeMinLoss(tf.test.TestCase):
     def test_call(self):
-        adj_mat = np.array([[0, 0], [1, 0]])  # 1 is parent of 0
-        weights = np.array([[1.0, 1.0],
-                            [1.0, 1.0]])
+        # We test the following tree:
+        #       4
+        #      / \
+        #     2   3
+        #    / \
+        #   0   1
+        # Here I only test y_true combinations respecting the hierarchy, note
+        # that no check is made regarding this at runtime
+        adj_mat = np.array([[0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0],  # 0 and 1 are leaves
+                            [1, 1, 0, 0, 0],  # 2 is parent of 0 and 1
+                            [0, 0, 0, 0, 0],  # 3 is a leaf
+                            [1, 1, 1, 1, 0]],  # 4 is parent of 2 and 3
+                           )  # 3 is an upper leaf
+        weights = np.array([1.0])  # equal weights for all cases
         tml = losses.TreeMinLoss(adjacency_matrix=adj_mat,
                                  from_logits=True,
                                  activation='linear',
@@ -182,38 +194,109 @@ class TestTreeMinLoss(tf.test.TestCase):
         wbc = losses.WeightedBinaryCrossentropy(from_logits=True,
                                                 class_weights=weights)
 
-        y_true = tf.constant(np.array([[0.0, 1.0]]), dtype=tf.float32)
+        # Leaf 1 is true
+        y_true = tf.constant(np.array([[0.0, 1.0, 1.0, 0.0, 1.0]]),
+                             dtype=tf.float32)
+        ## Coherent prediction
+        input_logits = tf.constant(np.array([[-1.0, 2.0, 2.5, -0.5, 3.0]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=input_logits, y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
+        ## Incoherent predictions for 2
+        input_logits = tf.constant(np.array([[-1.0, 2.0, 1.5, -0.5, 3.0]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[-1.0, 1.5, 1.5, -0.5, 3.0]]), y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
+        ## Incoherent predictions for 4
+        input_logits = tf.constant(np.array([[-1.0, 2.0, 2.5, -0.5, 1.5]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[-1.0, 1.5, 1.5, -0.5, 1.5]]), y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
+        input_logits = tf.constant(np.array([[-1.0, 2.0, 2.5, -0.5, -1.5]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[-1.0, -1.5, -1.5, -0.5, -1.5]]), y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
 
-        input_logits = tf.constant(np.array([[-1.0, 2.0]]), dtype=tf.float32)
+        # Leaf 3 is true
+        y_true = tf.constant(np.array([[0.0, 0.0, 0.0, 1.0, 1.0]]),
+                             dtype=tf.float32)
+        ## Coherent prediction
+        input_logits = tf.constant(np.array([[-1.0, -2.0, 0, 2.5, 3.0]]),
+                                   dtype=tf.float32)
         self.assertAllCloseAccordingToType(
             wbc(y_pred=input_logits, y_true=y_true),
             tml(y_pred=input_logits, y_true=y_true)
         )
-        input_logits = tf.constant(np.array([[2.0, -1.0]]), dtype=tf.float32)
+        ## Incoherent prediction for 2 and 4
+        input_logits = tf.constant(np.array([[-1.0, 0.0, -1.0, 2.5, 2.0]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[-1.0, 0.0, 0.0, 2.0, 2.0]]), y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
+        # Node 2 is true
+        y_true = tf.constant(np.array([[0.0, 0.0, 1.0, 0.0, 1.0]]),
+                             dtype=tf.float32)
+        ## Coherent prediction
+        input_logits = tf.constant(np.array([[-1.0, -2.0, 0, -2.5, 3.0]]),
+                                   dtype=tf.float32)
         self.assertAllCloseAccordingToType(
             wbc(y_pred=input_logits, y_true=y_true),
             tml(y_pred=input_logits, y_true=y_true)
         )
-        y_true = tf.constant(np.array([[1.0, 1.0]]), dtype=tf.float32)
-        input_logits = tf.constant(np.array([[-1.0, 2.0]]), dtype=tf.float32)
+        input_logits = tf.constant(np.array([[-1.0, 1.0, 2.0, -2.5, 3.0]]),
+                                   dtype=tf.float32)
         self.assertAllCloseAccordingToType(
             wbc(y_pred=input_logits, y_true=y_true),
             tml(y_pred=input_logits, y_true=y_true)
         )
-        input_logits = tf.constant(np.array([[2.0, -1.0]]), dtype=tf.float32)
+        ## Incoherent prediction for 2 and 4
+        input_logits = tf.constant(np.array([[-1.0, 4.0, 3.0, -2.5, 2.0]]),
+                                   dtype=tf.float32)
         self.assertAllCloseAccordingToType(
-            wbc(y_pred=np.array([[-1.0, -1.0]]), y_true=y_true),
+            wbc(y_pred=np.array([[-1.0, 4.0, 2.0, -2.5, 2.0]]), y_true=y_true),
             tml(y_pred=input_logits, y_true=y_true)
         )
-        y_true = tf.constant(np.array([[0.0, 0.0]]), dtype=tf.float32)
-        input_logits = tf.constant(np.array([[-1.0, 2.0]]), dtype=tf.float32)
+        # Node 4 is true
+        y_true = tf.constant(np.array([[0.0, 0.0, 0.0, 0.0, 1.0]]),
+                             dtype=tf.float32)
+        ## Coherent prediction
+        input_logits = tf.constant(np.array([[-1.0, -2.0, 0, -2.5, 3.0]]),
+                                   dtype=tf.float32)
         self.assertAllCloseAccordingToType(
             wbc(y_pred=input_logits, y_true=y_true),
             tml(y_pred=input_logits, y_true=y_true)
         )
-        input_logits = tf.constant(np.array([[2.0, -1.0]]), dtype=tf.float32)
+        ## Incoherent prediction for 1,0 and 3
+        input_logits = tf.constant(np.array([[-1.0, .0, -2.0, 3.5, 3.0]]),
+                                   dtype=tf.float32)
         self.assertAllCloseAccordingToType(
-            wbc(y_pred=np.array([[2.0, 2.0]]), y_true=y_true),
+            wbc(y_pred=np.array([[-1.0, .0, 0.0, 3.5, 3.0]]), y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
+        # No true node
+        y_true = tf.constant(np.array([[0.0, 0.0, 0.0, 0.0, 0.0]]),
+                             dtype=tf.float32)
+        ## Coherent prediction
+        input_logits = tf.constant(np.array([[-1.0, -2.0, 0, -2.5, 3.0]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=input_logits, y_true=y_true),
+            tml(y_pred=input_logits, y_true=y_true)
+        )
+        ## Incoherent prediction for 2 and 1
+        input_logits = tf.constant(np.array([[-1.0, 3.0, 2.0, -2.5, 0.0]]),
+                                   dtype=tf.float32)
+        self.assertAllCloseAccordingToType(
+            wbc(y_pred=np.array([[-1.0, 3.0, 3.0, -2.5, 3.0]]), y_true=y_true),
             tml(y_pred=input_logits, y_true=y_true)
         )
         # y_true = tf.constant(np.array([[1.0, 0.0]]) would violate the
@@ -221,8 +304,10 @@ class TestTreeMinLoss(tf.test.TestCase):
         # TODO raise an error?
 
         # Test casting of inputs if they have mismatched dtypes
-        input_logits = tf.constant(input_logits, dtype=tf.float32)
-        y_true = tf.constant(np.array([[0.0, 0.0]]), dtype=tf.int8)
+        input_logits = tf.constant(np.array([[-1.0, 3.0, 2.0, -2.5, 0.0]]),
+                                   dtype=tf.float32)
+        y_true = tf.constant(np.array([[0.0, 0.0, 0.0, 0.0, 0.0]]),
+                             dtype=tf.int8)
         tml(y_pred=input_logits, y_true=y_true)
 
         # Test casting to the cross ent type when both input have another dtype
