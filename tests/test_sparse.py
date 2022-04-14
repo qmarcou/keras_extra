@@ -1,4 +1,6 @@
 from unittest import TestCase
+
+import keras_utils.sparse
 from keras_utils import sparse
 import tensorflow as tf
 import numpy as np
@@ -98,11 +100,19 @@ class Test(tf.test.TestCase):
                                   tf.sparse.to_dense(mul2))
             self.assertAllEqual(exp_out2, tf.sparse.to_dense(mul2))
 
-    def reduce_max_single_axis(self):
-        pass
+    def test_reduce_max_single_axis(self):
+        # x = [[-7, ?]
+        #    [ 4, 3]
+        #    [ ?, ?]]
+        x = tf.sparse.SparseTensor([[0, 0, ], [1, 0], [1, 1]], [-7, 4, 3],
+                                   [3, 2])
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
+                                                 output_is_sparse=False),
+            tf.sparse.to_dense(
+                keras_utils.sparse.reduce_max_single_axis(x, axis=0)))
 
     def test_reduce_min(self):
-        # y = [[-7, ?]
+        # x = [[-7, ?]
         #    [ 4, 3]
         #    [ ?, ?]]
         x = tf.sparse.SparseTensor([[0, 0, ], [1, 0], [1, 1]], [-7, 4, 3],

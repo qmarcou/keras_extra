@@ -24,10 +24,10 @@ def expend_single_dim(sp_tensor: tf.sparse.SparseTensor,
     return out_tensor
 
 
-#@tf.function
+# @tf.function
 def expend_unit_dim(sp_tensor: tf.SparseTensor,
                     target_shape: tf.TensorShape) -> tf.SparseTensor:
-    #FIXME find a way to make it work with autograph
+    # FIXME find a way to make it work with autograph
     if isinstance(target_shape, tf.TensorShape) and \
             not target_shape.is_fully_defined():
         return sp_tensor
@@ -79,13 +79,13 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
         sparse_t = tf.sparse.to_dense(sparse_t)
         return tf.sparse.from_dense(tf.multiply(sparse_t, dense_t))
 
-#@tf.function
+
+# @tf.function
 def reduce_max_single_axis(sp_input: tf.SparseTensor,
-               axis:int,
-               keepdims=None,
-               ordered=False,
-               output_is_sparse=False,
-               name=None):
+                           axis: int,
+                           keepdims=None,
+                           ordered=False,
+                           name=None) -> tf.SparseTensor:
     """
     math.(unsorted_)segment_sum.
 
@@ -94,27 +94,61 @@ def reduce_max_single_axis(sp_input: tf.SparseTensor,
         axis: int, axis along which to sum
         ordered: if True, other axis indices are assumed to be ascending.
 
+    Note: breaks tf.sparse convention of maintaining the original ordering if
+    not ordered
+
     Returns:
         rank 1 dense tensor equivalent to tf.sparse.reduce_sum(sp, axis=axis)
     """
+    axis = tf.constant(axis)
+    axis = tf.reshape(axis, shape=())  # Enforce scalar tensor
+
+    # Get the retained axes
+    indicesrange = tf.range(0, tf.rank(sp_input))
+    mask = tf.reduce_any(tf.not_equal(tf.reshape(indicesrange, shape=(-1, 1)),
+                                      tf.reshape(axis, shape=(1, -1))),
+                         axis=1)
+    comp_axes = tf.boolean_mask(indicesrange, mask)
+
     # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
-    if ordered:
-        return tf.math.segment_max(sp_input.values, sp_input.indices[:, axis])
-    else:
-        # should remove this option since I'll need to map back indices to
-        # values and I would need the order
-        return tf.math.unsorted_segment_max(sp_input.values,
-                                            sp_input.indices[:, axis],
-                                            sp_input.dense_shape[axis])
-    # compute indices using tf.unique ?
+    if not ordered:
+        sp_input = tf.sparse.reorder(sp_input)
+
+    values = tf.Variable(sp_input.values, shape=(None,))
+    indices = tf.Variable(sp_input.indices, shape=(None, None))
+
+    for ax in tf.reverse(tensor=comp_axes, axis=tf.constant([0])):
+        # FIXME I'm pretty sure this part is wrong
+        #   maybe I should take unique first over all other axes, and then
+        #   use the idx arg to feed segment_max
+        # reverse iterate to remove last axes first
+        values.assign(tf.math.segment_max(values,
+                                          indices[:, ax]))
+
+        # Extract the corresponding indices
+        # this op will discard indices from axis so I'll have to re-insert them
+        # if keepdims
+        indices, idx = tf.raw_ops.UniqueV2(
+            x=indices[:, ax],  # requires a scalar/0D axis tensor
+            axis=tf.constant(0, shape=(1,), dtype=tf.int32)
+            # requires a 1D axis tensor
+        )
+
     if keepdims:
         # easiest case build sparse tensor with same shape
         return tf.SparseTensor()
     else:
         # "slice" indices and shape tensor to exclude single dimension (use
         # tf.gather with tf.where(tf.not_equal(range(0,rank),axis))
-        pass
-    tf.sparse.s
+        new_shape = tf.gather(params=sp_input.dense_shape,
+                              indices=comp_axes)
+        print(comp_axes)
+        print(new_shape)
+        print(indices)
+        print(values)
+        return tf.SparseTensor(values=values, indices=indices,
+                               dense_shape=new_shape)
+
 
 def reduce_min(sp_input: tf.SparseTensor,
                axis=None,
