@@ -130,3 +130,10 @@ class TestECM(tf.test.TestCase):
                                  [0, 1, 0, 0],
                                  [0, 1, 1, 1]], dtype=np.float64),
                                 collapse_all=False))
+
+        # Test with non binary values
+        self.assertAllEqual([False, True],
+                            ecm_layer_min.is_input_hier_coherent(np.array(
+                                [[0.2, 0, 0, 1.5],
+                                 [1.5, 1.4, 1.5, 1.0]], dtype=np.float64),
+                                collapse_all=False))
