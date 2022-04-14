@@ -182,7 +182,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
 
     layers = input_layer + hidden_layers
     if detached_loss:
-        loss_layer_name = "denseL_" + str(n_layers)
+        loss_layer_name = "PreOutputDenseL"
         layers.append(
             keras.layers.Dense(units=output_size, name=loss_layer_name,
                                activation='linear'))
