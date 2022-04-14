@@ -192,6 +192,13 @@ class ExtremumConstraintModule(Activation):
         base_config = super(ExtremumConstraintModule, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
+    def is_input_hier_coherent(self, inputs, collapse_all=True) -> bool:
+        ecm_inputs = self(inputs)
+        if collapse_all:
+            return tf.reduce_all(tf.equal(inputs, ecm_inputs))
+        else:
+            # Only collapse the last dimension
+            return tf.reduce_all(tf.equal(inputs, ecm_inputs), axis=-1)
 
 class DenseHierL2Reg(keras.layers.Dense):
     """
