@@ -85,6 +85,7 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
 def reduce_max(sp_input: tf.SparseTensor,
                axis: int | List[int] | tf.Tensor,
                keepdims: bool = False,
+               output_is_sparse=False,
                name: str = None) -> tf.SparseTensor:
     """
     math.(unsorted_)segment_sum.
@@ -109,14 +110,15 @@ def reduce_max(sp_input: tf.SparseTensor,
     if axis is None:
         axis = indices_range
 
-    axis = tf.constant(axis)
+    if not isinstance(axis, tf.Tensor):
+        axis = tf.constant(axis)
     axis = tf.reshape(axis, shape=(-1,))  # Enforce 1D tensor
     axis = tf.sort(axis)
     axis, _idx = tf.unique(x=axis)  # make sure values are unique
 
-    if tf.shape(axis)[0] == tf.rank(input=sp_input):
-        # Collapse all dimensions, we only need to return a scalar value
-        return tf.reduce_max(sp_input.values, axis=None, keepdims=False)
+    # if tf.equal(tf.shape(axis)[0], tf.rank(input=sp_input)):
+    #     # Collapse all dimensions, we only need to return a scalar value
+    #     return tf.reduce_max(sp_input.values, axis=None, keepdims=False)
 
     # Get the retained axes based on discarded axes
     mask = tf.reduce_all(tf.not_equal(tf.reshape(indices_range, shape=(-1, 1)),
@@ -166,8 +168,12 @@ def reduce_max(sp_input: tf.SparseTensor,
         new_shape = tf.gather(params=sp_input.dense_shape,
                               indices=comp_axes)
 
-    return tf.SparseTensor(values=values, indices=indices,
-                           dense_shape=new_shape)
+    sp_out = tf.SparseTensor(values=values, indices=indices,
+                             dense_shape=new_shape)
+    if output_is_sparse:
+        return sp_out
+    else:
+        return tf.sparse.to_dense(tf.sparse.reorder(sp_out))
 
 
 def reduce_min(sp_input: tf.SparseTensor,
