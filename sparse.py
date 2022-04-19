@@ -138,7 +138,8 @@ def reduce_max(sp_input: tf.SparseTensor,
     else:
         values = tf.math.unsorted_segment_max(data=sp_input.values,
                                               segment_ids=idx,
-                                              num_segments=tf.reduce_max(idx)+1
+                                              num_segments=tf.reduce_max(
+                                                  idx) + 1
                                               )
     if tf.rank(indices) == 1:
         # Indices tensor must be rank 2 to instantiate a SparseTensor
@@ -147,13 +148,26 @@ def reduce_max(sp_input: tf.SparseTensor,
     if keepdims:
         # easiest case build sparse tensor with same shape
         raise NotImplementedError("Keepdims option is not implemented yet")
-        return tf.SparseTensor()
+        # Get the new_shape
+        new_shape = tf.where(condition=mask,
+                             x=sp_input.dense_shape,
+                             y=tf.ones(shape=(tf.rank(sp_input)),
+                                       dtype=sp_input.dense_shape.dtype))
+        # Introduce ones where needed in indices
+        # tf.scatter_nd(indices=tf.constant([[0], [2]], shape=(2, 1)),
+        #              updates=tf.constant([[2, 2], [3, 3]]), shape=(4, 2))
+        indices = tf.transpose(indices)
+        indices = tf.tensor_scatter_nd_add(tensor=tf.transpose(tf.ones_like(sp_input.indices)),
+                                           indices=comp_axes,
+                                           updates=tf.transpose(indices)-1)
+        indices = tf.transpose(indices)
+
     else:
         new_shape = tf.gather(params=sp_input.dense_shape,
                               indices=comp_axes)
 
-        return tf.SparseTensor(values=values, indices=indices,
-                               dense_shape=new_shape)
+    return tf.SparseTensor(values=values, indices=indices,
+                           dense_shape=new_shape)
 
 
 def reduce_min(sp_input: tf.SparseTensor,
