@@ -106,17 +106,17 @@ class Test(tf.test.TestCase):
                             values=[-7, 4, 3],
                             dense_shape=(8,))
         self.assertAllEqual(tf.constant(4),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=0,
                                 ordered=False))
         self.assertAllEqual(tf.constant(4),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=[0],
                                 ordered=False))
         self.assertAllEqual(tf.constant(4),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=None,
                                 ordered=False))
@@ -132,7 +132,7 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=0,
                                     ordered=False)))
@@ -140,18 +140,18 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=1,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=1,
                                     ordered=False)))
         # 2 axes (complete collapse)
         self.assertAllEqual(tf.constant(4),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=[0, 1],
                                 ordered=False))
         self.assertAllEqual(tf.constant(4),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=None,
                                 ordered=False))
@@ -165,7 +165,7 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(tf.sparse.reorder(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=0,
                                     ordered=False))))
@@ -173,14 +173,14 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=1,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(tf.sparse.reorder(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=1,
                                     ordered=False))))
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=2,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(tf.sparse.reorder(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=2,
                                     ordered=False))))
@@ -188,7 +188,7 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=[0, 1],
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(tf.sparse.reorder(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=[0, 1],
                                     ordered=False))))
@@ -196,25 +196,25 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=[1, 2],
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(tf.sparse.reorder(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=[1, 2],
                                     ordered=False))))
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=[0, 2],
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(tf.sparse.reorder(
-                                keras_utils.sparse.reduce_max_single_axis(
+                                keras_utils.sparse.reduce_max(
                                     x,
                                     axis=[0, 2],
                                     ordered=False))))
         # 3 axes
         self.assertAllEqual(tf.constant(8),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=None,
                                 ordered=False))
         self.assertAllEqual(tf.constant(8),
-                            keras_utils.sparse.reduce_max_single_axis(
+                            keras_utils.sparse.reduce_max(
                                 x,
                                 axis=[0, 1, 2],
                                 ordered=False))

@@ -81,11 +81,11 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
 
 
 # @tf.function
-def reduce_max_single_axis(sp_input: tf.SparseTensor,
-                           axis: int,
-                           keepdims=None,
-                           ordered=False,
-                           name=None) -> tf.SparseTensor:
+def reduce_max(sp_input: tf.SparseTensor,
+               axis: int,
+               keepdims=None,
+               ordered=False,
+               name=None) -> tf.SparseTensor:
     """
     math.(unsorted_)segment_sum.
 
