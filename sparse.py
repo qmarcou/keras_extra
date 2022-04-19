@@ -1,5 +1,6 @@
 """Some useful math operation extensions for Tensorflow."""
 from __future__ import annotations
+from typing import List
 
 import tensorflow as tf
 
@@ -82,10 +83,10 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
 
 # @tf.function
 def reduce_max(sp_input: tf.SparseTensor,
-               axis: int,
-               keepdims=None,
-               ordered=False,
-               name=None) -> tf.SparseTensor:
+               axis: int | List[int] | tf.Tensor,
+               keepdims: bool = False,
+               ordered: bool = False,
+               name: str = None) -> tf.SparseTensor:
     """
     math.(unsorted_)segment_sum.
 
@@ -96,7 +97,17 @@ def reduce_max(sp_input: tf.SparseTensor,
 
     Returns:
         rank 1 dense tensor equivalent to tf.sparse.reduce_sum(sp, axis=axis)
+
+    TODO:
+        - use ops name
+        - implement keepdims
+        - check passing ordered
+        - check timings
+        - update documentation
+        - check autographable
     """
+    # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
+
     if axis is None:
         axis = tf.range(0, tf.rank(sp_input))
     axis = tf.constant(axis)
@@ -113,11 +124,6 @@ def reduce_max(sp_input: tf.SparseTensor,
                                       tf.reshape(axis, shape=(1, -1))),
                          axis=1)
     comp_axes = tf.boolean_mask(indices_range, mask)
-    # print("blurb")
-    # print(comp_axes)
-    # print(axis)
-
-    # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
 
     # Extract the corresponding indices
     # this op will discard indices from axis so I'll have to re-insert them
@@ -125,7 +131,6 @@ def reduce_max(sp_input: tf.SparseTensor,
     indices, idx = tf.raw_ops.UniqueV2(
         x=tf.gather(params=sp_input.indices, indices=comp_axes, axis=1),
         axis=tf.constant(0, shape=(1,), dtype=tf.int32))
-    # requires a 1D axis tensor
 
     if ordered:
         values = tf.math.segment_max(data=sp_input.values,
@@ -146,10 +151,7 @@ def reduce_max(sp_input: tf.SparseTensor,
     else:
         new_shape = tf.gather(params=sp_input.dense_shape,
                               indices=comp_axes)
-        # print(comp_axes)
-        # print(new_shape)
-        # print(indices)
-        # print(values)
+
         return tf.SparseTensor(values=values, indices=indices,
                                dense_shape=new_shape)
 
