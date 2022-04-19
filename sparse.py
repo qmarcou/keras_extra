@@ -85,14 +85,13 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
 def reduce_max(sp_input: tf.SparseTensor,
                axis: int | List[int] | tf.Tensor,
                keepdims: bool = False,
-               ordered: bool = False,
                name: str = None) -> tf.SparseTensor:
     """
     math.(unsorted_)segment_sum.
 
     Args:
         sp: rank 2 sparse tensor
-        axis: int, axis along which to sum
+        axis: int, axis along which to sum. Negative indices are not supported
         ordered: if True, other axis indices are assumed to be ascending.
 
     Returns:
@@ -101,17 +100,18 @@ def reduce_max(sp_input: tf.SparseTensor,
     TODO:
         - use ops name
         - implement keepdims
-        - check passing ordered
         - check timings
         - update documentation
         - check autographable
     """
     # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
-
+    indices_range = tf.range(0, tf.rank(sp_input))
     if axis is None:
-        axis = tf.range(0, tf.rank(sp_input))
+        axis = indices_range
+
     axis = tf.constant(axis)
     axis = tf.reshape(axis, shape=(-1,))  # Enforce 1D tensor
+    axis = tf.sort(axis)
     axis, _idx = tf.unique(x=axis)  # make sure values are unique
 
     if tf.shape(axis)[0] == tf.rank(input=sp_input):
@@ -119,7 +119,6 @@ def reduce_max(sp_input: tf.SparseTensor,
         return tf.reduce_max(sp_input.values, axis=None, keepdims=False)
 
     # Get the retained axes based on discarded axes
-    indices_range = tf.range(0, tf.rank(sp_input))
     mask = tf.reduce_all(tf.not_equal(tf.reshape(indices_range, shape=(-1, 1)),
                                       tf.reshape(axis, shape=(1, -1))),
                          axis=1)
@@ -132,15 +131,15 @@ def reduce_max(sp_input: tf.SparseTensor,
         x=tf.gather(params=sp_input.indices, indices=comp_axes, axis=1),
         axis=tf.constant(0, shape=(1,), dtype=tf.int32))
 
-    if ordered:
-        values = tf.math.segment_max(data=sp_input.values,
-                                     segment_ids=idx)
-    else:
-        values = tf.math.unsorted_segment_max(data=sp_input.values,
-                                              segment_ids=idx,
-                                              num_segments=tf.reduce_max(
-                                                  idx) + 1
-                                              )
+    # I initially thought I could use the sorted of segment_max version with
+    # ordered sparseTensors but there were too many corner cases and checks
+    # to be performed and would have been limited to reduce in contiguous
+    # first dimensions
+    values = tf.math.unsorted_segment_max(data=sp_input.values,
+                                          segment_ids=idx,
+                                          num_segments=tf.reduce_max(
+                                              idx) + 1
+                                          )
     if tf.rank(indices) == 1:
         # Indices tensor must be rank 2 to instantiate a SparseTensor
         indices = tf.reshape(tensor=indices, shape=(-1, 1))
@@ -157,9 +156,10 @@ def reduce_max(sp_input: tf.SparseTensor,
         # tf.scatter_nd(indices=tf.constant([[0], [2]], shape=(2, 1)),
         #              updates=tf.constant([[2, 2], [3, 3]]), shape=(4, 2))
         indices = tf.transpose(indices)
-        indices = tf.tensor_scatter_nd_add(tensor=tf.transpose(tf.ones_like(sp_input.indices)),
-                                           indices=comp_axes,
-                                           updates=tf.transpose(indices)-1)
+        indices = tf.tensor_scatter_nd_add(
+            tensor=tf.transpose(tf.ones_like(sp_input.indices)),
+            indices=comp_axes,
+            updates=tf.transpose(indices) - 1)
         indices = tf.transpose(indices)
 
     else:
