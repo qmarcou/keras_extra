@@ -94,58 +94,54 @@ def reduce_max_single_axis(sp_input: tf.SparseTensor,
         axis: int, axis along which to sum
         ordered: if True, other axis indices are assumed to be ascending.
 
-    Note: breaks tf.sparse convention of maintaining the original ordering if
-    not ordered
-
     Returns:
         rank 1 dense tensor equivalent to tf.sparse.reduce_sum(sp, axis=axis)
     """
     axis = tf.constant(axis)
-    axis = tf.reshape(axis, shape=())  # Enforce scalar tensor
+    axis = tf.reshape(axis, shape=(-1,))  # Enforce 1D tensor
 
-    # Get the retained axes
-    indicesrange = tf.range(0, tf.rank(sp_input))
-    mask = tf.reduce_any(tf.not_equal(tf.reshape(indicesrange, shape=(-1, 1)),
+    # Get the retained axes based on discarded axes
+    indices_range = tf.range(0, tf.rank(sp_input))
+    mask = tf.reduce_any(tf.not_equal(tf.reshape(indices_range, shape=(-1, 1)),
                                       tf.reshape(axis, shape=(1, -1))),
                          axis=1)
-    comp_axes = tf.boolean_mask(indicesrange, mask)
+    comp_axes = tf.boolean_mask(indices_range, mask)
 
     # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
-    if not ordered:
-        sp_input = tf.sparse.reorder(sp_input)
 
-    values = tf.Variable(sp_input.values, shape=(None,))
-    indices = tf.Variable(sp_input.indices, shape=(None, None))
+    # Extract the corresponding indices
+    # this op will discard indices from axis so I'll have to re-insert them
+    # if keepdims
+    indices, idx = tf.raw_ops.UniqueV2(
+        x=tf.gather(params=sp_input.indices, indices=comp_axes, axis=1),
+        axis=tf.constant(0, shape=(1,), dtype=tf.int32))
+    # requires a 1D axis tensor
 
-    for ax in tf.reverse(tensor=comp_axes, axis=tf.constant([0])):
-        # FIXME I'm pretty sure this part is wrong
-        #   maybe I should take unique first over all other axes, and then
-        #   use the idx arg to feed segment_max
-        # reverse iterate to remove last axes first
-        values.assign(tf.math.segment_max(values,
-                                          indices[:, ax]))
-
-        # Extract the corresponding indices
-        # this op will discard indices from axis so I'll have to re-insert them
-        # if keepdims
-        indices, idx = tf.raw_ops.UniqueV2(
-            x=indices[:, ax],  # requires a scalar/0D axis tensor
-            axis=tf.constant(0, shape=(1,), dtype=tf.int32)
-            # requires a 1D axis tensor
-        )
+    if ordered:
+        values = tf.math.segment_max(data=sp_input.values,
+                                     segment_ids=idx)
+    else:
+        values = tf.math.unsorted_segment_max(data=sp_input.values,
+                                              segment_ids=idx,
+                                              num_segments=tf.reduce_max(idx)+1
+                                              )
+    if tf.rank(indices) == 1:
+        # Indices tensor must be rank 2 to instantiate a SparseTensor
+        indices = tf.reshape(tensor=indices, shape=(-1, 1))
 
     if keepdims:
         # easiest case build sparse tensor with same shape
+        raise NotImplementedError("Keepdims option is not implemented yet")
         return tf.SparseTensor()
     else:
         # "slice" indices and shape tensor to exclude single dimension (use
         # tf.gather with tf.where(tf.not_equal(range(0,rank),axis))
         new_shape = tf.gather(params=sp_input.dense_shape,
                               indices=comp_axes)
-        print(comp_axes)
-        print(new_shape)
-        print(indices)
-        print(values)
+        # print(comp_axes)
+        # print(new_shape)
+        # print(indices)
+        # print(values)
         return tf.SparseTensor(values=values, indices=indices,
                                dense_shape=new_shape)
 

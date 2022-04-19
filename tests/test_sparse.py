@@ -101,6 +101,8 @@ class Test(tf.test.TestCase):
             self.assertAllEqual(exp_out2, tf.sparse.to_dense(mul2))
 
     def test_reduce_max_single_axis(self):
+        # Test 1D case
+        # Test 2D case
         # x = [[-7, ?]
         #    [ 4, 3]
         #    [ ?, ?]]
@@ -108,8 +110,22 @@ class Test(tf.test.TestCase):
                                    [3, 2])
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
                                                  output_is_sparse=False),
-            tf.sparse.to_dense(
-                keras_utils.sparse.reduce_max_single_axis(x, axis=0)))
+                            tf.sparse.to_dense(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=0,
+                                    ordered=False)))
+
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=1,
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=1,
+                                    ordered=False)))
+        # Test 3D case
+        # Single axis
+        # 2 axes
 
     def test_reduce_min(self):
         # x = [[-7, ?]
