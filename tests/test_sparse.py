@@ -101,7 +101,7 @@ class Test(tf.test.TestCase):
             self.assertAllEqual(exp_out2, tf.sparse.to_dense(mul2))
 
     def test_reduce_max_single_axis(self):
-        # Test 1D case
+        # Test 1D tensor case
         x = tf.SparseTensor(indices=[[2], [5], [6]],
                             values=[-7, 4, 3],
                             dense_shape=(8,))
@@ -121,13 +121,14 @@ class Test(tf.test.TestCase):
                                 axis=None,
                                 ordered=False))
 
-        # Test 2D case
+        # Test 2D tensor case
         # x = [[-7, ?]
         #    [ 4, 3]
         #    [ ?, ?]]
         x = tf.SparseTensor(indices=[[0, 0], [1, 0], [1, 1]],
                             values=[-7, 4, 3],
                             dense_shape=[3, 2])
+        # Single axis
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(
@@ -143,9 +144,80 @@ class Test(tf.test.TestCase):
                                     x,
                                     axis=1,
                                     ordered=False)))
+        # 2 axes (complete collapse)
+        self.assertAllEqual(tf.constant(4),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=[0, 1],
+                                ordered=False))
+        self.assertAllEqual(tf.constant(4),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=None,
+                                ordered=False))
         # Test 3D case
+        x = tf.SparseTensor(indices=[[0, 0, 0], [1, 0, 0], [1, 1, 0],
+                                     [1, 0, 1], [0, 1, 1], [2, 1, 1]],
+                            values=[-7, 4, 3, 5, -6, 8],
+                            dense_shape=[3, 2, 2])
+        x = tf.sparse.reorder(x)
         # Single axis
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(tf.sparse.reorder(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=0,
+                                    ordered=False))))
+
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=1,
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(tf.sparse.reorder(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=1,
+                                    ordered=False))))
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=2,
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(tf.sparse.reorder(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=2,
+                                    ordered=False))))
         # 2 axes
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=[0, 1],
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(tf.sparse.reorder(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=[0, 1],
+                                    ordered=False))))
+
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=[1, 2],
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(tf.sparse.reorder(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=[1, 2],
+                                    ordered=False))))
+        self.assertAllEqual(tf.sparse.reduce_max(x, axis=[0, 2],
+                                                 output_is_sparse=False),
+                            tf.sparse.to_dense(tf.sparse.reorder(
+                                keras_utils.sparse.reduce_max_single_axis(
+                                    x,
+                                    axis=[0, 2],
+                                    ordered=False))))
+        # 3 axes
+        self.assertAllEqual(tf.constant(8),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=None,
+                                ordered=False))
+        self.assertAllEqual(tf.constant(8),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=[0, 1, 2],
+                                ordered=False))
 
         # Test that passing an unordered sparseTensor with ordered=True raises
         # an exception

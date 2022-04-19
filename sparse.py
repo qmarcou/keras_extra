@@ -109,10 +109,13 @@ def reduce_max_single_axis(sp_input: tf.SparseTensor,
 
     # Get the retained axes based on discarded axes
     indices_range = tf.range(0, tf.rank(sp_input))
-    mask = tf.reduce_any(tf.not_equal(tf.reshape(indices_range, shape=(-1, 1)),
+    mask = tf.reduce_all(tf.not_equal(tf.reshape(indices_range, shape=(-1, 1)),
                                       tf.reshape(axis, shape=(1, -1))),
                          axis=1)
     comp_axes = tf.boolean_mask(indices_range, mask)
+    # print("blurb")
+    # print(comp_axes)
+    # print(axis)
 
     # Adapted from https://github.com/tensorflow/tensorflow/issues/32763
 
@@ -141,8 +144,6 @@ def reduce_max_single_axis(sp_input: tf.SparseTensor,
         raise NotImplementedError("Keepdims option is not implemented yet")
         return tf.SparseTensor()
     else:
-        # "slice" indices and shape tensor to exclude single dimension (use
-        # tf.gather with tf.where(tf.not_equal(range(0,rank),axis))
         new_shape = tf.gather(params=sp_input.dense_shape,
                               indices=comp_axes)
         # print(comp_axes)
