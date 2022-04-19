@@ -97,8 +97,15 @@ def reduce_max_single_axis(sp_input: tf.SparseTensor,
     Returns:
         rank 1 dense tensor equivalent to tf.sparse.reduce_sum(sp, axis=axis)
     """
+    if axis is None:
+        axis = tf.range(0, tf.rank(sp_input))
     axis = tf.constant(axis)
     axis = tf.reshape(axis, shape=(-1,))  # Enforce 1D tensor
+    axis, _idx = tf.unique(x=axis)  # make sure values are unique
+
+    if tf.shape(axis)[0] == tf.rank(input=sp_input):
+        # Collapse all dimensions, we only need to return a scalar value
+        return tf.reduce_max(sp_input.values, axis=None, keepdims=False)
 
     # Get the retained axes based on discarded axes
     indices_range = tf.range(0, tf.rank(sp_input))

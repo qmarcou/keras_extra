@@ -102,12 +102,32 @@ class Test(tf.test.TestCase):
 
     def test_reduce_max_single_axis(self):
         # Test 1D case
+        x = tf.SparseTensor(indices=[[2], [5], [6]],
+                            values=[-7, 4, 3],
+                            dense_shape=(8,))
+        self.assertAllEqual(tf.constant(4),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=0,
+                                ordered=False))
+        self.assertAllEqual(tf.constant(4),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=[0],
+                                ordered=False))
+        self.assertAllEqual(tf.constant(4),
+                            keras_utils.sparse.reduce_max_single_axis(
+                                x,
+                                axis=None,
+                                ordered=False))
+
         # Test 2D case
         # x = [[-7, ?]
         #    [ 4, 3]
         #    [ ?, ?]]
-        x = tf.sparse.SparseTensor([[0, 0, ], [1, 0], [1, 1]], [-7, 4, 3],
-                                   [3, 2])
+        x = tf.SparseTensor(indices=[[0, 0], [1, 0], [1, 1]],
+                            values=[-7, 4, 3],
+                            dense_shape=[3, 2])
         self.assertAllEqual(tf.sparse.reduce_max(x, axis=0,
                                                  output_is_sparse=False),
                             tf.sparse.to_dense(
@@ -126,6 +146,9 @@ class Test(tf.test.TestCase):
         # Test 3D case
         # Single axis
         # 2 axes
+
+        # Test that passing an unordered sparseTensor with ordered=True raises
+        # an exception
 
     def test_reduce_min(self):
         # x = [[-7, ?]
