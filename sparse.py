@@ -99,7 +99,13 @@ def reduce_max(sp_input: tf.SparseTensor,
         rank 1 dense tensor equivalent to tf.sparse.reduce_sum(sp, axis=axis)
 
     TODO:
-        - use ops name
+        - implement gradient:
+        https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/ops/math_grad.py
+        cf implementation for unsorted segment max
+        https://www.tensorflow.org/guide/create_op#implement_the_gradient_in_python
+        https://stackoverflow.com/questions/37924071/tensorflow-writing-an-op-in-python
+        https://www.tensorflow.org/api_docs/python/tf/custom_gradient
+        - use ops name -> check how to register python ops name
         - implement keepdims
         - check timings
         - update documentation
