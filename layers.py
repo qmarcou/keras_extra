@@ -11,10 +11,11 @@ from tensorflow.keras import backend as K
 from typing import Optional
 from enum import Enum
 
+
 # Useful references:
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models
 
-class Extremum (Enum):
+class Extremum(Enum):
     Max = "max",
     Min = "min"
 
@@ -213,11 +214,13 @@ class DenseHierL2Reg(keras.layers.Dense):
 
     def __init__(self, adjacency_matrix: np.ndarray | coo_matrix,
                  hier_side: str,
-                 sparse_adjacency: bool = False,
                  **kwargs):
         super(DenseHierL2Reg, self).__init__(**kwargs)
-        self.sparse_adjacency = sparse_adjacency
+
+        # Check that adjacency matrix is a tree
         self.sparse_adjacency = adjacency_matrix
+
+        # Make the matrix an adjacency list 2D (L,2) Tensor
 
         hier_side = str(hier_side).lower()
         if hier_side in ['in', 'input']:
@@ -225,8 +228,20 @@ class DenseHierL2Reg(keras.layers.Dense):
         elif hier_side in ['out', 'output']:
             self.hier_side = "output"
         else:
-            raise ValueError("Invalid 'extremum' argument.")
+            raise ValueError("Invalid 'hier_side' argument.")
 
     def call(self, inputs):
         # call a tf.func computing the L2 norm of difference with each parent
-        self.add_loss(self.weights, self.bias, self.hierarchy)
+        self.add_loss(loss_func(self.weights, self.bias, self.hierarchy))
+        return super()
+
+
+#@tf.function
+def _dense_compute_hier_weight_diff_vector(weights: tf.Tensor,
+                                           adj_list: tf.Tensor,
+                                           axis: int) -> tf.Tensor:
+    x = tf.gather(params=weights, indices=adj_list[:, 0], axis=axis,
+                  name="getx_vectors")
+    y = tf.gather(params=weights, indices=adj_list[:, 1], axis=axis,
+                  name="gety_vectors")
+    return tf.subtract(x=x, y=y, name="subtractxy")
