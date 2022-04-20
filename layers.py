@@ -214,19 +214,36 @@ class DenseHierL2Reg(keras.layers.Dense):
 
     def __init__(self, adjacency_matrix: np.ndarray | coo_matrix,
                  hier_side: str,
+                 tree_like: bool = False,
                  **kwargs):
         super(DenseHierL2Reg, self).__init__(**kwargs)
 
-        # Check that adjacency matrix is a tree
-        self.sparse_adjacency = adjacency_matrix
+        # Check the adjacency matrix general logic
+        _check_dense_adj_mat(adjacency_matrix)
+
+        # Check that the adjacency matrix is a tree
+        # If tree like there must be a direction in which the matrix sums to 1s
+        # and 0s since nodes can have at most 1 parent
+        if tree_like:
+            adj_sum = tf.reduce_sum(adjacency_matrix, axis=0)
+            if tf.reduce_any(tf.logical_or(tf.equal(adj_sum, 1.0),
+                                           tf.equal(adj_sum, 0.0))):
+                # check the second axis
+                adj_sum = tf.reduce_sum(adjacency_matrix, axis=1)
+                if tf.reduce_any(tf.logical_or(tf.equal(adj_sum, 1.0),
+                                               tf.equal(adj_sum, 0.0))):
+                    raise ValueError("The adjacency matrix is not tree like.")
 
         # Make the matrix an adjacency list 2D (L,2) Tensor
+        self.adj_list = tf.where(condition=adjacency_matrix)
 
         hier_side = str(hier_side).lower()
         if hier_side in ['in', 'input']:
             self.hier_side = "input"
+            self.weights_vec_axis = 0
         elif hier_side in ['out', 'output']:
             self.hier_side = "output"
+            self.weights_vec_axis = 1
         else:
             raise ValueError("Invalid 'hier_side' argument.")
 
@@ -236,7 +253,7 @@ class DenseHierL2Reg(keras.layers.Dense):
         return super()
 
 
-#@tf.function
+# @tf.function
 def _dense_compute_hier_weight_diff_vector(weights: tf.Tensor,
                                            adj_list: tf.Tensor,
                                            axis: int) -> tf.Tensor:
@@ -245,3 +262,27 @@ def _dense_compute_hier_weight_diff_vector(weights: tf.Tensor,
     y = tf.gather(params=weights, indices=adj_list[:, 1], axis=axis,
                   name="gety_vectors")
     return tf.subtract(x=x, y=y, name="subtractxy")
+
+
+def _check_dense_adj_mat(adj_mat: tf.Tensor) -> None:
+    adjacency_mat = tf.constant(adj_mat,  # cast to a general type
+                                dtype=tf.float64)
+    # Check dimensions
+    if tf.rank(adjacency_mat) != 2:
+        raise ValueError("The adjacency matrix must be a 2D matrix")
+
+    adj_shape = tf.shape(adjacency_mat)
+    if adj_shape[0] != adj_shape[1]:
+        raise ValueError("The adjacency matrix must be a square matrix")
+
+    # Check that the provided adjacency matrix makes sense
+    mask = tf.logical_or(
+        tf.equal(adjacency_mat, 0.0),
+        tf.equal(adjacency_mat, 1.0))
+    if not tf.reduce_all(mask):
+        raise ValueError("Invalid adjacency matrix: the adjacency "
+                         "matrix should only contain 0s and 1s. The "
+                         "passed AM contains the following unique "
+                         "values:"
+                         + str(tf.unique(tf.reshape(adjacency_mat,
+                                                    shape=(-1,)))))
