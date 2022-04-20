@@ -1,6 +1,7 @@
 """A collection of custom keras layers."""
 from __future__ import annotations
 import numpy as np
+from ipython_genutils.py3compat import input
 from numpy import dtype, clip
 from scipy.sparse import coo_matrix, isspmatrix_coo, isspmatrix
 import tensorflow as tf
@@ -214,6 +215,7 @@ class DenseHierL2Reg(keras.layers.Dense):
 
     def __init__(self, adjacency_matrix: np.ndarray | coo_matrix,
                  hier_side: str,
+                 regularization_factor: float,
                  tree_like: bool = False,
                  **kwargs):
         super(DenseHierL2Reg, self).__init__(**kwargs)
@@ -237,20 +239,47 @@ class DenseHierL2Reg(keras.layers.Dense):
         # Make the matrix an adjacency list 2D (L,2) Tensor
         self.adj_list = tf.where(condition=adjacency_matrix)
 
+        # Store adj_mat size for further checks in build
+        self._adj_mat_size = tf.shape(adjacency_matrix)[0]
+
         hier_side = str(hier_side).lower()
         if hier_side in ['in', 'input']:
             self.hier_side = "input"
             self.weights_vec_axis = 0
+            self.weights_concat_axis = 1
         elif hier_side in ['out', 'output']:
             self.hier_side = "output"
             self.weights_vec_axis = 1
+            self.weights_concat_axis = 0
         else:
             raise ValueError("Invalid 'hier_side' argument.")
 
+        assert regularization_factor > 0
+        self.regularization_factor = tf.constant(regularization_factor,
+                                                 shape=())
+
+    def build(self, input_shape):
+        super(DenseHierL2Reg, self).build(input_shape=input_shape)
+        if tf.shape(self.weights)[self.weights_vec_axis] != self._adj_mat_size:
+            raise ValueError("The size of the adjacency matrix and weights "
+                             "dimension do not match.")
+
     def call(self, inputs):
         # call a tf.func computing the L2 norm of difference with each parent
-        self.add_loss(loss_func(self.weights, self.bias, self.hierarchy))
-        return super()
+        # concat weights and bias to a general weight tensor
+        concat_weights = tf.concat(values=[self.weights, self.bias],
+                                   axis=self.weights_concat_axis,
+                                   name="concatWeightsBias")
+        # Add the L2 norms of the difference between parent/child vectors
+        self.add_loss(self.regularization_factor *
+                      tf.reduce_sum(tf.square(
+                          _dense_compute_hier_weight_diff_vector(
+                              weights=concat_weights,
+                              adj_list=self.adj_list,
+                              axis=self.weights_vec_axis
+                          )
+                      )))
+        return super(DenseHierL2Reg, self).call(inputs=inputs)
 
 
 # @tf.function
