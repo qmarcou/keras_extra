@@ -44,7 +44,7 @@ class ExtremumConstraintModule(Activation):
         approach in which information about children nodes is used to compute
         the resulting parent activation. This is the strategy proposed in the
         MCM paper.
-
+    sparse_adjacency: works only if there's no need to backpropagate gradients
     """
 
     def __init__(self, activation, extremum: str,
