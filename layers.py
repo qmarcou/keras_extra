@@ -154,7 +154,8 @@ class ExtremumConstraintModule(Activation):
     def build(self, input_shape: tf.TensorShape):
         # reshape with length 1 first dimension for broadcasting over
         # sample and possibly other dimensions
-        # input_shape does not contain the batch size dimension
+        # input_shape does not contain the explicit batch size dimension only
+        # but None
         new_shape = tf.concat([tf.ones(shape=input_shape.rank - 1,
                                        dtype=tf.int32),
                                tf.fill(2, input_shape[-1])],
@@ -213,12 +214,14 @@ class DenseHierL2Reg(keras.layers.Dense):
     to enable multi-graph regularization with different weights for each graph.
     """
 
-    def __init__(self, adjacency_matrix: np.ndarray | coo_matrix,
+    def __init__(self,
+                 units,
+                 adjacency_matrix: np.ndarray | coo_matrix,
                  hier_side: str,
                  regularization_factor: float,
                  tree_like: bool = False,
                  **kwargs):
-        super(DenseHierL2Reg, self).__init__(**kwargs)
+        super(DenseHierL2Reg, self).__init__(units=units, **kwargs)
 
         # Check the adjacency matrix general logic
         _check_dense_adj_mat(adjacency_matrix)
@@ -228,13 +231,18 @@ class DenseHierL2Reg(keras.layers.Dense):
         # and 0s since nodes can have at most 1 parent
         if tree_like:
             adj_sum = tf.reduce_sum(adjacency_matrix, axis=0)
-            if tf.reduce_any(tf.logical_or(tf.equal(adj_sum, 1.0),
-                                           tf.equal(adj_sum, 0.0))):
-                # check the second axis
-                adj_sum = tf.reduce_sum(adjacency_matrix, axis=1)
-                if tf.reduce_any(tf.logical_or(tf.equal(adj_sum, 1.0),
-                                               tf.equal(adj_sum, 0.0))):
-                    raise ValueError("The adjacency matrix is not tree like.")
+            if not tf.reduce_all(tf.logical_or(
+                    tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
+                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))):
+                raise ValueError("The adjacency matrix is not tree like.")
+
+            # check the second axis
+            adj_sum = tf.reduce_sum(adjacency_matrix, axis=1)
+            if not tf.reduce_all(tf.logical_or(
+                    tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
+                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))):
+                print(adj_sum)
+                raise ValueError("The adjacency matrix is not tree like.")
 
         # Make the matrix an adjacency list 2D (L,2) Tensor
         self.adj_list = tf.where(condition=adjacency_matrix)
@@ -254,20 +262,22 @@ class DenseHierL2Reg(keras.layers.Dense):
         else:
             raise ValueError("Invalid 'hier_side' argument.")
 
-        assert regularization_factor > 0
+        if regularization_factor <= 0:
+            raise ValueError("Regularization factor must be > 0")
         self.regularization_factor = tf.constant(regularization_factor,
                                                  shape=())
 
-    def build(self, input_shape):
+    def build(self, input_shape: tf.TensorShape):
         super(DenseHierL2Reg, self).build(input_shape=input_shape)
-        if tf.shape(self.weights)[self.weights_vec_axis] != self._adj_mat_size:
+
+        if tf.shape(self.kernel)[self.weights_vec_axis] != self._adj_mat_size:
             raise ValueError("The size of the adjacency matrix and weights "
                              "dimension do not match.")
 
     def call(self, inputs):
         # call a tf.func computing the L2 norm of difference with each parent
         # concat weights and bias to a general weight tensor
-        concat_weights = tf.concat(values=[self.weights, self.bias],
+        concat_weights = tf.concat(values=[self.kernel, self.bias],
                                    axis=self.weights_concat_axis,
                                    name="concatWeightsBias")
         # Add the L2 norms of the difference between parent/child vectors
