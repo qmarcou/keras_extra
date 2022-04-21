@@ -2,6 +2,7 @@ from unittest import TestCase
 import tensorflow as tf
 from keras_utils import layers
 import numpy as np
+from tensorflow import keras
 
 from keras_utils.layers import DenseHierL2Reg, \
     _dense_compute_hier_weight_diff_tensor
@@ -229,7 +230,29 @@ class TestDenseHierL2Reg(tf.test.TestCase):
             hier_dense.losses)
 
     def test_inmodel(self):
-        pass
+        adj_mat = np.array([[0, 0, 0],
+                            [1, 0, 0],
+                            [0, 0, 0]])  # 1 is child of 0
+        hier_dense = DenseHierL2Reg(units=3,
+                                    adjacency_matrix=adj_mat,
+                                    hier_side="out",
+                                    regularization_factor=1.0,
+                                    tree_like=True
+                                    )
+        model = keras.Sequential([keras.layers.Input(shape=(4,)),
+                                  keras.layers.Dense(3),
+                                  hier_dense])
+        model.compile(loss=keras.losses.binary_crossentropy)
+
+        x = tf.constant(np.array([[4.0, 3.0, -1.0, 2.0],
+                                  [4.0, 2.0, -1.0, 3.0],
+                                  [-1.0, 2.0, -1.0, 3.0]]),
+                        dtype=tf.float32)
+
+        y = np.array([[4.0, 3.0, -1.0],
+                      [4.0, 3.0, -1.0],
+                      [3.0, 3.0, -1.0]])
+        hist: keras.callbacks.History = model.fit(x=x, y=y, verbose=False)
 
 
 class Test(tf.test.TestCase):
