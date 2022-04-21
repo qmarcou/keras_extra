@@ -119,6 +119,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                 batchnorm: bool = False,
                                 dropout: float = 0, output_bias=None,
                                 activation='relu', output_activation='sigmoid',
+                                output_layer: keras.layers.Layer = None,
                                 loss=BinaryCrossentropy,
                                 loss_kwargs={'from_logits': False},
                                 metrics=(keras_utils.metrics.Coverage(),
@@ -143,6 +144,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
     output_bias
     activation
     output_activation
+    output_layer: if detached loss, the provided layer will sit just below the
+        activation layer implied by output_activation
     loss
     loss_kwargs
     metrics
@@ -182,10 +185,16 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
 
     layers = input_layer + hidden_layers
     if detached_loss:
-        loss_layer_name = "denseL_" + str(n_layers)
-        layers.append(
-            keras.layers.Dense(units=output_size, name=loss_layer_name,
-                               activation='linear'))
+        if output_layer is not None:
+            # Append the provided layer as the last layer
+            layers.append(output_layer)
+            loss_layer_name = output_layer.name
+        else:
+            # Add a final linear Dense layer
+            loss_layer_name = "denseL_" + str(n_layers)
+            layers.append(
+                keras.layers.Dense(units=output_size, name=loss_layer_name,
+                                   activation='linear'))
 
         if isinstance(output_activation, keras.layers.Activation):
             layers.append(output_activation)
@@ -199,9 +208,14 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
         model = SequentialPreOutputLoss(layers=layers,
                                         loss_layer_name=loss_layer_name)
     else:
-        layers.append(
-            keras.layers.Dense(units=output_size, name="outputL_",
-                               activation='sigmoid'))
+        if output_layer is not None:
+            # Append the provided layer as the last layer
+            layers.append(output_layer)
+        else:
+            # Add a dense layer with sigmoid activation
+            layers.append(
+                keras.layers.Dense(units=output_size, name="outputL_",
+                                   activation='sigmoid'))
         model = keras.Sequential(layers)
 
     model.build()
