@@ -283,7 +283,7 @@ class DenseHierL2Reg(keras.layers.Dense):
         # Add the L2 norms of the difference between parent/child vectors
         self.add_loss(self.regularization_factor *
                       tf.reduce_sum(tf.square(
-                          _dense_compute_hier_weight_diff_vector(
+                          _dense_compute_hier_weight_diff_tensor(
                               weights=concat_weights,
                               adj_list=self.adj_list,
                               axis=self.weights_vec_axis
@@ -292,15 +292,35 @@ class DenseHierL2Reg(keras.layers.Dense):
         return super(DenseHierL2Reg, self).call(inputs=inputs)
 
 
-# @tf.function
-def _dense_compute_hier_weight_diff_vector(weights: tf.Tensor,
+@tf.function
+def _dense_compute_hier_weight_diff_tensor(weights: tf.Tensor,
                                            adj_list: tf.Tensor,
                                            axis: int) -> tf.Tensor:
     x = tf.gather(params=weights, indices=adj_list[:, 0], axis=axis,
                   name="getx_vectors")
     y = tf.gather(params=weights, indices=adj_list[:, 1], axis=axis,
                   name="gety_vectors")
-    return tf.subtract(x=x, y=y, name="subtractxy")
+    sub = tf.subtract(x=x, y=y, name="subtractxy")
+
+    if axis != 0:
+        # Transpose the obtained tensor such that the first dimension
+        # correspond to the different entries in the adjacency_list
+        indices_range = tf.range(0, tf.rank(weights))
+        if axis < 0:
+            axis = indices_range[axis]
+
+        if isinstance(axis, tf.Tensor):
+            axis = tf.reshape(axis, shape=(1,))
+        else:
+            axis = tf.constant(axis, shape=(1,))
+
+        mask = tf.not_equal(indices_range,
+                            axis)
+        comp_axes = tf.boolean_mask(indices_range, mask)
+
+        return tf.transpose(a=sub, perm=tf.concat([axis, comp_axes], axis=0))
+    else:
+        return sub
 
 
 def _check_dense_adj_mat(adj_mat: tf.Tensor) -> None:

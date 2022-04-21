@@ -3,7 +3,8 @@ import tensorflow as tf
 from keras_utils import layers
 import numpy as np
 
-from keras_utils.layers import DenseHierL2Reg
+from keras_utils.layers import DenseHierL2Reg, \
+    _dense_compute_hier_weight_diff_tensor
 
 
 class TestECM(tf.test.TestCase):
@@ -164,5 +165,39 @@ class TestDenseHierL2Reg(tf.test.TestCase):
                           )
         hier_dense.build(tf.TensorShape([None, 2]))
 
+    def test_call(self):
+        pass
 
 
+class Test(tf.test.TestCase):
+    def test_dense_compute_hier_weight_diff_vector(self):
+        weights = tf.constant([[1.0, 2.0, 4.0],
+                               [3.0, 5.0, 6.0]],
+                              dtype=tf.float32)
+        adj_list = tf.constant([[0, 1],
+                                [1, 0]], dtype=tf.int32)
+
+        self.assertAllCloseAccordingToType(
+            np.array([[-2.0, -3.0, -2.0],
+                      [2.0, 3.0, 2.0]]),
+            _dense_compute_hier_weight_diff_tensor(weights=weights,
+                                                   adj_list=adj_list,
+                                                   axis=0))
+        self.assertAllCloseAccordingToType(
+            np.array([[-2.0, -3.0, -2.0],
+                      [2.0, 3.0, 2.0]]),
+            _dense_compute_hier_weight_diff_tensor(weights=weights,
+                                                   adj_list=adj_list,
+                                                   axis=-2))
+        self.assertAllCloseAccordingToType(
+            np.array([[-1.0, -2.0],
+                      [1.0, 2.0]]),
+            _dense_compute_hier_weight_diff_tensor(weights=weights,
+                                                   adj_list=adj_list,
+                                                   axis=1))
+        self.assertAllCloseAccordingToType(
+            np.array([[-1.0, -2.0],
+                      [1.0, 2.0]]),
+            _dense_compute_hier_weight_diff_tensor(weights=weights,
+                                                   adj_list=adj_list,
+                                                   axis=-1))
