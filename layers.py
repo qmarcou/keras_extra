@@ -218,7 +218,7 @@ class DenseHierL2Reg(keras.layers.Dense):
                  units,
                  adjacency_matrix: np.ndarray | coo_matrix,
                  hier_side: str,
-                 regularization_factor: float,
+                 regularization_factor: float = 0.01,
                  tree_like: bool = False,
                  **kwargs):
         super(DenseHierL2Reg, self).__init__(units=units, **kwargs)
