@@ -166,6 +166,69 @@ class TestDenseHierL2Reg(tf.test.TestCase):
         hier_dense.build(tf.TensorShape([None, 2]))
 
     def test_call(self):
+        adj_mat = np.array([[0, 0, 0],
+                            [1, 0, 0],
+                            [0, 0, 0]])  # 1 is child of 0
+        input_tensor = tf.constant([[.0, .0, .0],
+                                    [.0, .0, .0]])
+
+        # Test output regularization
+        hier_dense = DenseHierL2Reg(units=3,
+                                    adjacency_matrix=adj_mat,
+                                    hier_side="out",
+                                    regularization_factor=1.0,
+                                    tree_like=True
+                                    )
+        hier_dense.build(input_shape=tf.TensorShape([None, 3]))
+
+        # set kernel and bias to controlled values
+        # the expected loss is the squared l2 norm of the difference between
+        # unit 0 and unit 1 vectors of parameters including bias
+        hier_dense.set_weights([np.array([[1.0, 2.0, 20.0],
+                                          [3.0, 5.0, 20.0],
+                                          [4.0, 6.0, 20.0]]),
+                                np.array([1.0, 2.0, 20.0])])
+        hier_dense(input_tensor)  # call
+        self.assertAllCloseAccordingToType(
+            np.array([10.0]),
+            hier_dense.losses)
+
+        # Test input regularization
+        hier_dense = DenseHierL2Reg(units=3,
+                                    adjacency_matrix=adj_mat,
+                                    hier_side="in",
+                                    regularization_factor=1.0,
+                                    tree_like=True
+                                    )
+        hier_dense.build(input_shape=tf.TensorShape([None, 3]))
+        # set weights to controlled values
+        # bias is an output activation property and should not be accounted for
+        # in input regularization
+        hier_dense.set_weights([np.array([[1.0, 2.0, 3.0],
+                                          [3.0, 5.0, 4.0],
+                                          [4.0, 6.0, 5.0]]),
+                                np.array([20.0, 20.0, 20.0])])
+        hier_dense(input_tensor)  # call
+        self.assertAllCloseAccordingToType(
+            np.array([14.0]),
+            hier_dense.losses)
+        hier_dense._clear_losses()
+
+        # Check that the direction of the adjacency matrix does not matter
+        hier_dense2 = DenseHierL2Reg(units=3,
+                                     adjacency_matrix=adj_mat.transpose(),
+                                     hier_side="in",
+                                     regularization_factor=1.0,
+                                     tree_like=True)
+        hier_dense2.build(input_shape=tf.TensorShape([None, 3]))
+        hier_dense.set_weights(hier_dense2.get_weights())  # random weights
+        hier_dense(input_tensor)  # call
+        hier_dense2(input_tensor)  # call
+        self.assertAllCloseAccordingToType(
+            hier_dense2.losses,
+            hier_dense.losses)
+
+    def test_inmodel(self):
         pass
 
 

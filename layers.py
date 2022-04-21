@@ -277,9 +277,15 @@ class DenseHierL2Reg(keras.layers.Dense):
     def call(self, inputs):
         # call a tf.func computing the L2 norm of difference with each parent
         # concat weights and bias to a general weight tensor
-        concat_weights = tf.concat(values=[self.kernel, self.bias],
-                                   axis=self.weights_concat_axis,
-                                   name="concatWeightsBias")
+        if self.hier_side == "output":
+            concat_weights = tf.concat(values=[self.kernel,
+                                               tf.reshape(self.bias,
+                                                          shape=(1, -1))],
+                                       axis=self.weights_concat_axis,
+                                       name="concatWeightsBias")
+        else:
+            concat_weights = self.kernel
+
         # Add the L2 norms of the difference between parent/child vectors
         self.add_loss(self.regularization_factor *
                       tf.reduce_sum(tf.square(
