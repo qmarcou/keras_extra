@@ -255,13 +255,14 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             if hp_kwargs['outputHierL2Reg']['enable']:
                 hp_kwargs['outputHierL2Reg'].pop('enable')
                 adj_mat = hp_kwargs['outputHierL2Reg'].pop('adjacency_matrix')
+                act = hp_kwargs['outputHierL2Reg'].pop('activation')
                 output_layer = keras_utils.layers.DenseHierL2Reg(
                     units=self.output_size,
                     adjacency_matrix=adj_mat,
                     hier_side='out',
-                    regularization_factor=hp.Float(name="hierL2reg_factor",
-                                                   **hp_kwargs['outputHierL2Reg']),
-                    tree_like=True
+                    regularization_factor=hp.Float(**hp_kwargs['outputHierL2Reg']),
+                    tree_like=True,
+                    activation=act
                 )
 
         loss_class = self.build_kwargs.get('loss')
@@ -285,7 +286,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            activation=hp.Choice('activation',
                                                                 **hp_kwargs[
                                                                     'activation']),
-                                           output_layer=output_layer
+                                           output_layer=output_layer,
                                            **build_kwargs)
 
     def fit(self, hp: kt.HyperParameters,
