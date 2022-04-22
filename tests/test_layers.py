@@ -97,7 +97,7 @@ class TestDenseHierL2Reg(tf.test.TestCase):
                           hier_side="out",
                           regularization_factor=-.1,
                           tree_like=True)
-        adj_mat = np.array([[1, 0], [1, 0]])  # 1 is child of 0
+        adj_mat = np.array([[0, 1], [1, 0]])  # 1 is child of 0
         self.assertRaises(ValueError,
                           DenseHierL2Reg,
                           units=1,

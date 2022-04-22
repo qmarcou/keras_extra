@@ -231,16 +231,16 @@ class DenseHierL2Reg(keras.layers.Dense):
         # and 0s since nodes can have at most 1 parent
         if tree_like:
             adj_sum = tf.reduce_sum(adjacency_matrix, axis=0)
-            if not tf.reduce_all(tf.logical_or(
+            first_ax_pred = tf.logical_not(tf.reduce_all(tf.logical_or(
                     tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
-                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))):
-                raise ValueError("The adjacency matrix is not tree like.")
+                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
 
             # check the second axis
             adj_sum = tf.reduce_sum(adjacency_matrix, axis=1)
-            if not tf.reduce_all(tf.logical_or(
+            sec_ax_pred = tf.logical_not(tf.reduce_all(tf.logical_or(
                     tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
-                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))):
+                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
+            if tf.logical_and(first_ax_pred, sec_ax_pred):
                 print(adj_sum)
                 raise ValueError("The adjacency matrix is not tree like.")
 
