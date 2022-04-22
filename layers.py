@@ -221,6 +221,24 @@ class DenseHierL2Reg(keras.layers.Dense):
                  regularization_factor: float = 0.01,
                  tree_like: bool = False,
                  **kwargs):
+        """
+
+        Parameters
+        ----------
+        units   Number of units of the Dense layer
+        adjacency_matrix    Adjacency matrix, must be a square matrix
+        containing 0s and 1s, its size must match the input or output (number
+        of units) size. The orientation of the links (child->parent or
+        parent->child) doesn't matter, however you should not provide redundant
+         links.
+        hier_side: 'out/'output' or 'in'/'input' depending whether the
+        hierarchical relationships describe inputs our outputs
+        regularization_factor: magnitude of the regularization term, defaults
+        to .001.
+        tree_like: whether the adjacency matrix is tree like and should be
+        checked as being tree like.
+        kwargs: other keyword arguments passed to the Dense Layer constructor
+        """
         super(DenseHierL2Reg, self).__init__(units=units, **kwargs)
 
         # Check the adjacency matrix general logic
