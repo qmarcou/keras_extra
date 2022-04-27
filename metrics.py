@@ -4,6 +4,9 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
 from typing import Optional
+import utils
+import abc
+import six
 
 
 def get_lowest_true_index(y_true, y_pred, from_logits=True):
@@ -90,7 +93,6 @@ class Coverage(keras.metrics.Mean):
     """
 
     # TODO: check -1 from Tarekegn et al
-    # TODO: check how to compute coverage for different levels in hierarchy
     # TODO: make sure I expect the correct dims from y_true/y_pred
     # TODO: normalize by number of true labels?
     def __init__(self, name='coverage', dtype=None, from_logits=True):
@@ -433,3 +435,249 @@ class MacroF1score(F1Score):
                          threshold=threshold,
                          name=name,
                          dtype=dtype)
+
+
+# Adapted From tensorflow-ranking v0.6.0, metrics_impl.py
+# last commit to file d8bd34c4d0006e0d142fe854a40b0e3a193f85da
+# Copyright 2021 The TensorFlow Ranking Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_DEFAULT_GAIN_FN = lambda label: tf.pow(2.0, label) - 1
+_DEFAULT_RANK_DISCOUNT_FN = lambda rank: tf.math.log(2.) / tf.math.log1p(rank)
+
+
+class _RankingMetric(six.with_metaclass(abc.ABCMeta, object)):
+    """Interface for ranking metrics."""
+
+    def __init__(self, ragged=False):
+        """Constructor.
+    Args:
+      ragged: A bool indicating whether the supplied tensors are ragged. If
+        True labels, predictions and weights (if providing per-example weights)
+        need to be ragged tensors with compatible shapes.
+    """
+        self._ragged = ragged
+
+    @property
+    @abc.abstractmethod
+    def name(self):
+        """The metric name."""
+        raise NotImplementedError('Calling an abstract method.')
+
+    def _prepare_and_validate_params(self, labels, predictions, weights, mask):
+        """Prepares and validates the parameters.
+    Args:
+      labels: A `Tensor` of the same shape as `predictions`. A value >= 1 means
+        a relevant example.
+      predictions: A `Tensor` with shape [batch_size, list_size]. Each value is
+        the ranking score of the corresponding example.
+      weights: A `Tensor` of the same shape of predictions or [batch_size, 1].
+        The former case is per-example and the latter case is per-list.
+      mask: A `Tensor` of the same shape as predictions indicating which entries
+        are valid for computing the metric.
+    Returns:
+      (labels, predictions, weights, mask) ready to be used for metric
+      calculation.
+    """
+        if any(isinstance(tensor, tf.RaggedTensor)
+               for tensor in [labels, predictions, weights]):
+            raise ValueError('labels, predictions and/or weights are ragged '
+                             'tensors, use ragged=True to enable ragged '
+                             'support for metrics.')
+        labels = tf.convert_to_tensor(value=labels)
+        predictions = tf.convert_to_tensor(value=predictions)
+        weights = 1.0 if weights is None else tf.convert_to_tensor(
+            value=weights)
+        example_weights = tf.ones_like(labels) * weights
+        predictions.get_shape().assert_is_compatible_with(
+            example_weights.get_shape())
+        predictions.get_shape().assert_is_compatible_with(labels.get_shape())
+        predictions.get_shape().assert_has_rank(2)
+
+        # All labels should be >= 0. Invalid entries are reset.
+        if mask is None:
+            mask = utils.is_label_valid(labels)
+        labels = tf.compat.v1.where(mask, labels, tf.zeros_like(labels))
+        predictions = tf.compat.v1.where(
+            mask, predictions, -1e-6 * tf.ones_like(predictions) +
+                               tf.reduce_min(input_tensor=predictions, axis=1,
+                                             keepdims=True))
+        return labels, predictions, example_weights, mask
+
+    def compute(self, labels, predictions, weights=None, mask=None):
+        """Computes the metric with the given inputs.
+    Args:
+      labels: A `Tensor` of the same shape as `predictions` representing
+        relevance.
+      predictions: A `Tensor` with shape [batch_size, list_size]. Each value is
+        the ranking score of the corresponding example.
+      weights: An optional `Tensor` of the same shape of predictions or
+        [batch_size, 1]. The former case is per-example and the latter case is
+        per-list.
+      mask: An optional `Tensor` of the same shape as predictions indicating
+        which entries are valid for computing the metric. Will be ignored if
+        the metric was constructed with ragged=True.
+    Returns:
+      A tf metric.
+    """
+        if self._ragged:
+            labels, predictions, weights, mask = utils.ragged_to_dense(
+                labels, predictions, weights)
+        labels, predictions, weights, mask = self._prepare_and_validate_params(
+            labels, predictions, weights, mask)
+        return self._compute_impl(labels, predictions, weights, mask)
+
+    @abc.abstractmethod
+    def _compute_impl(self, labels, predictions, weights, mask):
+        """Computes the metric with the given inputs.
+    Args:
+      labels: A `Tensor` of the same shape as `predictions` representing
+        relevance.
+      predictions: A `Tensor` with shape [batch_size, list_size]. Each value is
+        the ranking score of the corresponding example.
+      weights: A `Tensor` of the same shape of predictions or [batch_size, 1].
+        The former case is per-example and the latter case is per-list.
+      mask: A `Tensor` of the same shape as predictions indicating which entries
+        are valid for computing the metric.
+    Returns:
+      A tf metric.
+    """
+        raise NotImplementedError('Calling an abstract method.')
+
+
+class NDCGMetric(_RankingMetric):
+    """Implements normalized discounted cumulative gain (NDCG)."""
+
+    def __init__(self,
+                 name,
+                 topn,
+                 gain_fn=_DEFAULT_GAIN_FN,
+                 rank_discount_fn=_DEFAULT_RANK_DISCOUNT_FN,
+                 ragged=False):
+        """Constructor."""
+        super(NDCGMetric, self).__init__(ragged=ragged)
+        self._name = name
+        self._topn = topn
+        self._gain_fn = gain_fn
+        self._rank_discount_fn = rank_discount_fn
+
+    @property
+    def name(self):
+        """The metric name."""
+        return self._name
+
+    def _compute_impl(self, labels, predictions, weights, mask):
+        """See `_RankingMetric`."""
+        topn = tf.shape(predictions)[1] if self._topn is None else self._topn
+        sorted_labels, sorted_weights = utils.sort_by_scores(
+            predictions, [labels, weights], topn=topn, mask=mask)
+        dcg = _discounted_cumulative_gain(sorted_labels, sorted_weights,
+                                          self._gain_fn,
+                                          self._rank_discount_fn)
+        # Sorting over the weighted labels to get ideal ranking.
+        ideal_sorted_labels, ideal_sorted_weights = utils.sort_by_scores(
+            weights * labels, [labels, weights], topn=topn, mask=mask)
+        ideal_dcg = _discounted_cumulative_gain(ideal_sorted_labels,
+                                                ideal_sorted_weights,
+                                                self._gain_fn,
+                                                self._rank_discount_fn)
+        per_list_ndcg = tf.compat.v1.math.divide_no_nan(dcg, ideal_dcg)
+        per_list_weights = _per_example_weights_to_per_list_weights(
+            weights=weights,
+            relevance=self._gain_fn(tf.cast(labels, dtype=tf.float32)))
+        return per_list_ndcg,
+
+
+def _per_example_weights_to_per_list_weights(weights, relevance):
+    """Computes per list weight from per example weight.
+  The per-list weights are computed as:
+    per_list_weights = sum(weights * relevance) / sum(relevance).
+  For a list with sum(relevance) = 0, we set a default weight as the following
+  average weight while all the lists with sum(weights) = 0 are ignored.
+    sum(per_list_weights) / num(sum(relevance) != 0 && sum(weights) != 0)
+  When all the lists have sum(relevance) == 0, we set the average weight to 1.0.
+  Such a computation is good for the following scenarios:
+    - When all the weights are 1.0, the per list weights will be 1.0 everywhere,
+      even for lists without any relevant examples because
+        sum(per_list_weights) ==  num(sum(relevance) != 0)
+      This handles the standard ranking metrics where the weights are all 1.0.
+    - When every list has a nonzero weight, the default weight is not used. This
+      handles the unbiased metrics well.
+    - For the mixture of the above 2 scenario, the weights for lists with
+      nonzero relevance and nonzero weights is proportional to
+        per_list_weights / sum(per_list_weights) *
+        num(sum(relevance) != 0) / num(lists).
+      The rest have weights 1.0 / num(lists).
+  Args:
+    weights:  The weights `Tensor` of shape [batch_size, list_size].
+    relevance:  The relevance `Tensor` of shape [batch_size, list_size].
+  Returns:
+    The per list `Tensor` of shape [batch_size, 1]
+  """
+    nonzero_weights = tf.greater(
+        tf.reduce_sum(input_tensor=weights, axis=1, keepdims=True), 0.0)
+    per_list_relevance = tf.reduce_sum(
+        input_tensor=relevance, axis=1, keepdims=True)
+    nonzero_relevance = tf.compat.v1.where(
+        nonzero_weights,
+        tf.cast(tf.greater(per_list_relevance, 0.0), tf.float32),
+        tf.zeros_like(per_list_relevance))
+    nonzero_relevance_count = tf.reduce_sum(
+        input_tensor=nonzero_relevance, axis=0, keepdims=True)
+
+    per_list_weights = tf.compat.v1.math.divide_no_nan(
+        tf.reduce_sum(input_tensor=weights * relevance, axis=1, keepdims=True),
+        per_list_relevance)
+    sum_weights = tf.reduce_sum(
+        input_tensor=per_list_weights, axis=0, keepdims=True)
+
+    avg_weight = tf.compat.v1.where(
+        tf.greater(nonzero_relevance_count, 0.0),
+        tf.compat.v1.math.divide_no_nan(sum_weights, nonzero_relevance_count),
+        tf.ones_like(nonzero_relevance_count))
+    return tf.compat.v1.where(
+        nonzero_weights,
+        tf.where(
+            tf.greater(per_list_relevance, 0.0), per_list_weights,
+            tf.ones_like(per_list_weights) * avg_weight),
+        tf.zeros_like(per_list_weights))
+
+
+def _discounted_cumulative_gain(labels,
+                                weights=None,
+                                gain_fn=_DEFAULT_GAIN_FN,
+                                rank_discount_fn=_DEFAULT_RANK_DISCOUNT_FN):
+    """Computes discounted cumulative gain (DCG).
+  DCG = SUM(gain_fn(label) / rank_discount_fn(rank)). Using the default values
+  of the gain and discount functions, we get the following commonly used
+  formula for DCG: SUM((2^label -1) / log(1+rank)).
+  Args:
+    labels: The relevance `Tensor` of shape [batch_size, list_size]. For the
+      ideal ranking, the examples are sorted by relevance in reverse order. In
+      alpha_dcg, it is a `Tensor` with shape [batch_size, list_size,
+      subtopic_size].
+    weights: A `Tensor` of the same shape as labels or [batch_size, 1]. The
+      former case is per-example and the latter case is per-list.
+    gain_fn: (function) Transforms labels.
+    rank_discount_fn: (function) The rank discount function.
+  Returns:
+    A `Tensor` as the weighted discounted cumulative gain per-list. The
+    tensor shape is [batch_size, 1].
+  """
+    list_size = tf.shape(input=labels)[1]
+    position = tf.cast(tf.range(1, list_size + 1), dtype=tf.float32)
+    gain = gain_fn(tf.cast(labels, dtype=tf.float32))
+    discount = rank_discount_fn(position)
+    return tf.reduce_sum(
+        input_tensor=weights * gain * discount, axis=1, keepdims=True)
