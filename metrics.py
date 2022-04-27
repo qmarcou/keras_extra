@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
 from typing import Optional
-import utils
+from keras_utils import utils
 import abc
 import six
 
