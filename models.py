@@ -239,10 +239,8 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         build_kwargs = copy.deepcopy(self.build_kwargs)
         if hp_kwargs['use_dropout']['enable']:
             hp_kwargs['use_dropout'].pop('enable')
-            if hp.Boolean(name="use_dropout", **hp_kwargs['use_dropout']):
-                dropout_rate = hp.Float(name="dropout", **hp_kwargs['dropout'])
-            else:
-                dropout_rate = 0.0
+            dropout_rate = hp.Float(name="dropout", **hp_kwargs['dropout'])
+
         else:
             dropout_rate = 0.0
         if hp_kwargs['batchnorm']['enable']:
