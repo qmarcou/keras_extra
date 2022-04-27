@@ -119,6 +119,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                 batchnorm: bool = False,
                                 dropout: float = 0, output_bias=None,
                                 activation='relu', output_activation='sigmoid',
+                                output_layer: keras.layers.Layer = None,
                                 loss=BinaryCrossentropy,
                                 loss_kwargs={'from_logits': False},
                                 metrics=(keras_utils.metrics.Coverage(),
@@ -143,6 +144,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
     output_bias
     activation
     output_activation
+    output_layer: if detached loss, the provided layer will sit just below the
+        activation layer implied by output_activation
     loss
     loss_kwargs
     metrics
@@ -182,10 +185,16 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
 
     layers = input_layer + hidden_layers
     if detached_loss:
-        loss_layer_name = "PreOutputDenseL"
-        layers.append(
-            keras.layers.Dense(units=output_size, name=loss_layer_name,
-                               activation='linear'))
+        if output_layer is not None:
+            # Append the provided layer as the last layer
+            layers.append(output_layer)
+            loss_layer_name = output_layer.name
+        else:
+            # Add a final linear Dense layer
+            loss_layer_name = "PreOutputDenseL"
+            layers.append(
+                keras.layers.Dense(units=output_size, name=loss_layer_name,
+                                   activation='linear'))
 
         if isinstance(output_activation, keras.layers.Activation):
             layers.append(output_activation)
@@ -199,9 +208,14 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
         model = SequentialPreOutputLoss(layers=layers,
                                         loss_layer_name=loss_layer_name)
     else:
-        layers.append(
-            keras.layers.Dense(units=output_size, name="outputL_",
-                               activation='sigmoid'))
+        if output_layer is not None:
+            # Append the provided layer as the last layer
+            layers.append(output_layer)
+        else:
+            # Add a dense layer with sigmoid activation
+            layers.append(
+                keras.layers.Dense(units=output_size, name="outputL_",
+                                   activation='sigmoid'))
         model = keras.Sequential(layers)
 
     model.build()
@@ -236,6 +250,21 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         else:
             batchnorm = False
 
+        output_layer = None
+        if hp_kwargs.get('outputHierL2Reg'):
+            if hp_kwargs['outputHierL2Reg']['enable']:
+                hp_kwargs['outputHierL2Reg'].pop('enable')
+                adj_mat = hp_kwargs['outputHierL2Reg'].pop('adjacency_matrix')
+                act = hp_kwargs['outputHierL2Reg'].pop('activation')
+                output_layer = keras_utils.layers.DenseHierL2Reg(
+                    units=self.output_size,
+                    adjacency_matrix=adj_mat,
+                    hier_side='out',
+                    regularization_factor=hp.Float(**hp_kwargs['outputHierL2Reg']),
+                    tree_like=True,
+                    activation=act
+                )
+
         loss_class = self.build_kwargs.get('loss')
         # Custom hyperparameters for peculiar metrics
         if loss_class is not None and loss_class.__name__ == \
@@ -257,7 +286,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            activation=hp.Choice('activation',
                                                                 **hp_kwargs[
                                                                     'activation']),
-
+                                           output_layer=output_layer,
                                            **build_kwargs)
 
     def fit(self, hp: kt.HyperParameters,

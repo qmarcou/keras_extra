@@ -1,6 +1,7 @@
 """A collection of custom keras layers."""
 from __future__ import annotations
 import numpy as np
+from ipython_genutils.py3compat import input
 from numpy import dtype, clip
 from scipy.sparse import coo_matrix, isspmatrix_coo, isspmatrix
 import tensorflow as tf
@@ -11,10 +12,11 @@ from tensorflow.keras import backend as K
 from typing import Optional
 from enum import Enum
 
+
 # Useful references:
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models
 
-class Extremum (Enum):
+class Extremum(Enum):
     Max = "max",
     Min = "min"
 
@@ -152,7 +154,8 @@ class ExtremumConstraintModule(Activation):
     def build(self, input_shape: tf.TensorShape):
         # reshape with length 1 first dimension for broadcasting over
         # sample and possibly other dimensions
-        # input_shape does not contain the batch size dimension
+        # input_shape does not contain the explicit batch size dimension only
+        # but None
         new_shape = tf.concat([tf.ones(shape=input_shape.rank - 1,
                                        dtype=tf.int32),
                                tf.fill(2, input_shape[-1])],
@@ -218,22 +221,158 @@ class DenseHierL2Reg(keras.layers.Dense):
     to enable multi-graph regularization with different weights for each graph.
     """
 
-    def __init__(self, adjacency_matrix: np.ndarray | coo_matrix,
+    def __init__(self,
+                 units,
+                 adjacency_matrix: np.ndarray | coo_matrix,
                  hier_side: str,
-                 sparse_adjacency: bool = False,
+                 regularization_factor: float = 0.01,
+                 tree_like: bool = False,
                  **kwargs):
-        super(DenseHierL2Reg, self).__init__(**kwargs)
-        self.sparse_adjacency = sparse_adjacency
-        self.sparse_adjacency = adjacency_matrix
+        """
+
+        Parameters
+        ----------
+        units   Number of units of the Dense layer
+        adjacency_matrix    Adjacency matrix, must be a square matrix
+        containing 0s and 1s, its size must match the input or output (number
+        of units) size. The orientation of the links (child->parent or
+        parent->child) doesn't matter, however you should not provide redundant
+         links.
+        hier_side: 'out/'output' or 'in'/'input' depending whether the
+        hierarchical relationships describe inputs our outputs
+        regularization_factor: magnitude of the regularization term, defaults
+        to .001.
+        tree_like: whether the adjacency matrix is tree like and should be
+        checked as being tree like.
+        kwargs: other keyword arguments passed to the Dense Layer constructor
+        """
+        super(DenseHierL2Reg, self).__init__(units=units, **kwargs)
+
+        # Check the adjacency matrix general logic
+        _check_dense_adj_mat(adjacency_matrix)
+
+        # Check that the adjacency matrix is a tree
+        # If tree like there must be a direction in which the matrix sums to 1s
+        # and 0s since nodes can have at most 1 parent
+        if tree_like:
+            adj_sum = tf.reduce_sum(adjacency_matrix, axis=0)
+            first_ax_pred = tf.logical_not(tf.reduce_all(tf.logical_or(
+                    tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
+                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
+
+            # check the second axis
+            adj_sum = tf.reduce_sum(adjacency_matrix, axis=1)
+            sec_ax_pred = tf.logical_not(tf.reduce_all(tf.logical_or(
+                    tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
+                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
+            if tf.logical_and(first_ax_pred, sec_ax_pred):
+                print(adj_sum)
+                raise ValueError("The adjacency matrix is not tree like.")
+
+        # Make the matrix an adjacency list 2D (L,2) Tensor
+        self.adj_list = tf.where(condition=adjacency_matrix)
+
+        # Store adj_mat size for further checks in build
+        self._adj_mat_size = tf.shape(adjacency_matrix)[0]
 
         hier_side = str(hier_side).lower()
         if hier_side in ['in', 'input']:
             self.hier_side = "input"
+            self.weights_vec_axis = 0
+            self.weights_concat_axis = 1
         elif hier_side in ['out', 'output']:
             self.hier_side = "output"
+            self.weights_vec_axis = 1
+            self.weights_concat_axis = 0
         else:
-            raise ValueError("Invalid 'extremum' argument.")
+            raise ValueError("Invalid 'hier_side' argument.")
+
+        if regularization_factor <= 0:
+            raise ValueError("Regularization factor must be > 0")
+        self.regularization_factor = tf.constant(regularization_factor,
+                                                 shape=())
+
+    def build(self, input_shape: tf.TensorShape):
+        super(DenseHierL2Reg, self).build(input_shape=input_shape)
+
+        if tf.shape(self.kernel)[self.weights_vec_axis] != self._adj_mat_size:
+            raise ValueError("The size of the adjacency matrix and weights "
+                             "dimension do not match.")
 
     def call(self, inputs):
         # call a tf.func computing the L2 norm of difference with each parent
-        self.add_loss(self.weights, self.bias, self.hierarchy)
+        # concat weights and bias to a general weight tensor
+        if self.hier_side == "output":
+            concat_weights = tf.concat(values=[self.kernel,
+                                               tf.reshape(self.bias,
+                                                          shape=(1, -1))],
+                                       axis=self.weights_concat_axis,
+                                       name="concatWeightsBias")
+        else:
+            concat_weights = self.kernel
+
+        # Add the L2 norms of the difference between parent/child vectors
+        self.add_loss(self.regularization_factor *
+                      tf.reduce_sum(tf.square(
+                          _dense_compute_hier_weight_diff_tensor(
+                              weights=concat_weights,
+                              adj_list=self.adj_list,
+                              axis=self.weights_vec_axis
+                          )
+                      )))
+        return super(DenseHierL2Reg, self).call(inputs=inputs)
+
+
+@tf.function
+def _dense_compute_hier_weight_diff_tensor(weights: tf.Tensor,
+                                           adj_list: tf.Tensor,
+                                           axis: int) -> tf.Tensor:
+    x = tf.gather(params=weights, indices=adj_list[:, 0], axis=axis,
+                  name="getx_vectors")
+    y = tf.gather(params=weights, indices=adj_list[:, 1], axis=axis,
+                  name="gety_vectors")
+    sub = tf.subtract(x=x, y=y, name="subtractxy")
+
+    if axis != 0:
+        # Transpose the obtained tensor such that the first dimension
+        # correspond to the different entries in the adjacency_list
+        indices_range = tf.range(0, tf.rank(weights))
+        if axis < 0:
+            axis = indices_range[axis]
+
+        if isinstance(axis, tf.Tensor):
+            axis = tf.reshape(axis, shape=(1,))
+        else:
+            axis = tf.constant(axis, shape=(1,))
+
+        mask = tf.not_equal(indices_range,
+                            axis)
+        comp_axes = tf.boolean_mask(indices_range, mask)
+
+        return tf.transpose(a=sub, perm=tf.concat([axis, comp_axes], axis=0))
+    else:
+        return sub
+
+
+def _check_dense_adj_mat(adj_mat: tf.Tensor) -> None:
+    adjacency_mat = tf.constant(adj_mat,  # cast to a general type
+                                dtype=tf.float64)
+    # Check dimensions
+    if tf.rank(adjacency_mat) != 2:
+        raise ValueError("The adjacency matrix must be a 2D matrix")
+
+    adj_shape = tf.shape(adjacency_mat)
+    if adj_shape[0] != adj_shape[1]:
+        raise ValueError("The adjacency matrix must be a square matrix")
+
+    # Check that the provided adjacency matrix makes sense
+    mask = tf.logical_or(
+        tf.equal(adjacency_mat, 0.0),
+        tf.equal(adjacency_mat, 1.0))
+    if not tf.reduce_all(mask):
+        raise ValueError("Invalid adjacency matrix: the adjacency "
+                         "matrix should only contain 0s and 1s. The "
+                         "passed AM contains the following unique "
+                         "values:"
+                         + str(tf.unique(tf.reshape(adjacency_mat,
+                                                    shape=(-1,)))))
