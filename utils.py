@@ -33,10 +33,10 @@ def _move_axis_to_side_dim(x, axis, side: _SideDim) -> tf.Tensor:
     # Prepare axis to 1D tensor
     # Will throw an error if axis is not a scalar or 1D tensor
     if isinstance(axis, tf.Tensor):
-        axis = tf.constant(axis, dtype=tf.int32, shape=(-1,))
+        axis = tf.constant(axis, dtype=tf.int32)
     else:
-        axis = tf.reshape(axis, shape=(-1,))
         axis = tf.cast(x=axis, dtype=tf.int32)
+    axis = tf.reshape(axis, shape=(-1,))
 
     # Get actual axis indices if any axis is <0
     neg_axis = tf.less(axis, 0)
@@ -94,7 +94,7 @@ def move_axis_to_first_dim(x, axis) -> tf.Tensor:
     -------
     A tf.Tensor with same rank as x but reordered dimensions.
     """
-    return _move_axis_to_side_dim(x=x, axis=axis, side=_SideDim.Last)
+    return _move_axis_to_side_dim(x=x, axis=axis, side=_SideDim.First)
 
 
 def swapaxes(tensor, axis_1, axis_2):
