@@ -7,6 +7,9 @@ def not_in(x, list):
     """Check if values in x are contained in list"""
     pass
 
+def is_in(x, list):
+    pass
+
 
 class _SideDim(Enum):
     First = "first",
@@ -99,6 +102,36 @@ def move_axis_to_first_dim(x, axis) -> tf.Tensor:
 
 def swapaxes(tensor, axis_1, axis_2):
     pass
+
+
+def shape_without_axis(x, axis):
+    axes_range = tf.range(tf.rank(x), dtype=tf.int32)
+
+    # Prepare axis to 1D tensor
+    # Will throw an error if axis is not a scalar or 1D tensor
+    if isinstance(axis, tf.Tensor):
+        axis = tf.constant(axis, dtype=tf.int32)
+    else:
+        axis = tf.cast(x=axis, dtype=tf.int32)
+    axis = tf.reshape(axis, shape=(-1,))
+
+    # Get actual axis indices if any axis is <0
+    neg_axis = tf.less(axis, 0)
+    if tf.reduce_any(neg_axis):
+        axis = tf.where(condition=neg_axis, x=tf.rank(x) + axis, y=axis)
+
+    # Create new axis index map and transpose the tensor accordingly
+    mask = tf.reduce_all(tf.not_equal(
+        tf.reshape(axes_range, shape=(-1, 1)),
+        tf.reshape(axis, shape=(1, -1))),
+        axis=1)  # boils down to not_in in 1D
+
+    masked_shape = tf.boolean_mask(
+        tensor=tf.shape(x),
+        mask=mask)
+    return masked_shape
+
+
 
 
 # Adapted from tensorflow-ranking v0.6.0, utils.py

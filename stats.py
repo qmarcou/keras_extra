@@ -5,6 +5,22 @@ import numpy as np
 from keras_utils import utils
 
 
+def _percentile_wrapper(x, q, axis, **kwargs) -> tf.Tensor:
+    """A wrapper implementing checks that should be made in tfp.percentile"""
+    if tf.reduce_any(tf.equal(tf.shape(x), 0)):
+        if axis is not None:
+            post_compute_shape = utils.shape_without_axis(x, axis)
+        else:
+            if tf.rank(q) == 0:
+                return tf.constant(np.nan)
+            post_compute_shape = tf.constant([], shape=(0,), dtype=tf.int32)
+        q = tf.reshape(tensor=q, shape=(-1,))
+        return_shape = tf.concat([tf.shape(q), post_compute_shape], axis=0)
+        return tf.fill(value=np.nan, dims=return_shape)
+
+    return tfp.stats.percentile(x=x, q=q, axis=axis, **kwargs)
+
+
 def nanpercentile(x,
                   q,
                   axis=None,
@@ -36,12 +52,12 @@ def nanpercentile(x,
         mask = tf.logical_not(tf.math.is_nan(x))
         # use a boolean mask to remove nans and flatten the Tensor if necessary
         masked_x = tf.boolean_mask(mask=mask, tensor=x, axis=None)
-        return tfp.stats.percentile(x=masked_x, q=q, axis=axis,
-                                    interpolation=interpolation,
-                                    keepdims=False,
-                                    validate_args=validate_args,
-                                    preserve_gradients=preserve_gradients,
-                                    name=name)
+        return _percentile_wrapper(x=masked_x, q=q, axis=axis,
+                                   interpolation=interpolation,
+                                   keepdims=False,
+                                   validate_args=validate_args,
+                                   preserve_gradients=preserve_gradients,
+                                   name=name)
     else:
         # Check and process the axis argument
         if not isinstance(axis, tf.Tensor):
@@ -78,7 +94,7 @@ def nanpercentile(x,
         else:
             expect_shape = (None,)
         res = tf.map_fn(
-            fn=lambda t: tfp.stats.percentile(
+            fn=lambda t: _percentile_wrapper(
                 x=t, q=q, axis=None,
                 interpolation=interpolation,
                 keepdims=False,
@@ -99,7 +115,8 @@ def nanpercentile(x,
             res = tf.reshape(tensor=res,
                              shape=tf.concat(
                                  [restored_dims,
-                                  tf.slice(tf.shape(q), begin=(0,), size=(1,))],
+                                  tf.slice(tf.shape(q), begin=(0,),
+                                           size=(1,))],
                                  axis=0))
             # Now move the last axis for different percentiles to the first
             # axis the same way it would have been returned by

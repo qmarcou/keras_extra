@@ -7,6 +7,7 @@ import numpy as np
 
 class Test_NanPercentile(tf.test.TestCase):
     def test_nanpercentile(self):
+        # Test 1D case
         x = tf.constant([1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=tf.float32)
         self.assertEqual(5, stats.nanpercentile(x, 50))
         self.assertEqual(5, stats.nanpercentile(x, 50, axis=0))
@@ -17,6 +18,12 @@ class Test_NanPercentile(tf.test.TestCase):
         p = [10.0, 10.5, 25.0, 50.0, 75.0]
         self.assertAllEqual(stats.nanpercentile(x, p),
                             stats.nanpercentile(x_nan, p))
+        # Test case where only NaNs are provided
+        self.assertEqual(
+            tf.constant(True),
+            tf.math.is_nan(
+                stats.nanpercentile(tf.fill(value=np.nan, dims=(4,)),
+                                    q=50)))
 
         rand_x = tf.random.uniform(shape=(2, 3, 4, 5))
         # Check that without NaNs the function returns the same results
