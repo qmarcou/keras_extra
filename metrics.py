@@ -2,12 +2,11 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import backend as K
 from typing import Optional
-from keras_utils import utils
+from keras_utils import utils,stats
 import abc
 import six
-
+K = tf.keras.backend
 
 def get_lowest_true_index(y_true, y_pred, from_logits=True):
     """
@@ -84,6 +83,24 @@ def stateless_coverage(y_true, y_pred, sample_weight=None,
                                    tf.float32)))
 
 
+def rank_at_percentile(y_true, y_pred, q, sample_weight=None,
+                       from_logits: bool = True)->tf.Tensor:
+    y_true = tf.cast(y_true, dtype=tf.bool)
+
+    pred_ranks = tf.argsort(y_pred, axis=-1, direction='DESCENDING',
+                                stable=False)+1
+
+    mask = tf.fill(dims=tf.shape(y_true), value=np.nan)
+    # Set NaN rank for y_true=0
+    masked_ranks = tf.where(condition=y_true, x=pred_ranks, y=mask)
+
+    # Get rank at the specified percentile
+    return stats.nanpercentile(
+        x=masked_ranks,
+        q=q,
+        axis=-1,
+        interpolation='linear')
+
 class Coverage(keras.metrics.Mean):
     """
     A Metric subclass to compute coverage.
@@ -104,6 +121,36 @@ class Coverage(keras.metrics.Mean):
         lowest_true_rank = get_lowest_true_index(y_true, y_pred,
                                                  from_logits=self.from_logits)
         super(Coverage, self).update_state(lowest_true_rank,
+                                           sample_weight=sample_weight)
+
+class RankAtPercentile(keras.metrics.Mean):
+    """
+    A Metric subclass to compute the average rank at a given percentile.
+
+    This class wraps call to the rank_at_percentile function to provide a
+    Keras Metric subclass. It returns the average rank at a specified
+    percentile of true labels. E.g when 4 labels are true and q=75 (third
+    quartile), it will return the rank of the 3 label.
+    """
+
+    # TODO: check -1 from Tarekegn et al
+    # TODO: make sure I expect the correct dims from y_true/y_pred
+    # TODO: normalize by number of true labels?
+    def __init__(self, q, no_true_label_value=0,
+                 name='rankatpercentile', dtype=None, from_logits=True):
+        self.from_logits = from_logits
+        # FIXME check that q and notruevalue are scalars
+        self.percentile = q
+        self._fill_value = no_true_label_value
+        super(RankAtPercentile, self).__init__(name=name,
+                                       dtype=dtype)
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        percentile_at_rank = rank_at_percentile(y_true, y_pred,q=self.percentile,
+                                                 from_logits=self.from_logits)
+        # Filter possible NaNs and set the value to requested value
+        # FIXME
+        super(RankAtPercentile, self).update_state(percentile_at_rank,
                                            sample_weight=sample_weight)
 
 
@@ -405,8 +452,11 @@ class F1Score(FBetaScore):
         del base_config["beta"]
         return base_config
 
-
 ##############################################################################
+#                         END OF tensorflow-addons code                      #
+##############################################################################
+
+
 class MicroF1score(F1Score):
     def __init__(
             self,
@@ -681,3 +731,7 @@ def _discounted_cumulative_gain(labels,
     discount = rank_discount_fn(position)
     return tf.reduce_sum(
         input_tensor=weights * gain * discount, axis=1, keepdims=True)
+##############################################################################
+#                         END OF tensorflow-ranking code                     #
+##############################################################################
+
