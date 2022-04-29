@@ -2,21 +2,42 @@
 import tensorflow as tf
 
 
+def not_in(x, list):
+    """Check if values in x are contained in list"""
+    pass
+
+
 def move_axis_to_last_dim(x, axis) -> tf.Tensor:
+    """
+    Move the given axes to last dimensions
+    Parameters
+    ----------
+    x the tf.Tensor of interest
+    axis 0 or 1D tf.Tensor (or similar) specifying the axes that should be
+        moved to last dimension. If several axes are given they will be
+        ordered according to their order in the 'axis' argument.
+    Returns
+    -------
+    A tf.Tensor with same rank as x but reordered dimensions.
+    """
     axes_range = tf.range(tf.rank(x), dtype=tf.int32)
 
-    # Prepare axis to length one
-    # Will throw an error if axis is not a scalar or length one
+    # Prepare axis to 1D tensor
+    # Will throw an error if axis is not a scalar or 1D tensor
     if isinstance(axis, tf.Tensor):
-        axis = tf.constant(axis, dtype=tf.int32, shape=(1,))
+        axis = tf.constant(axis, dtype=tf.int32, shape=(-1,))
     else:
-        axis = tf.reshape(axis, shape=(1,))
+        axis = tf.reshape(axis, shape=(-1,))
         axis = tf.cast(x=axis, dtype=tf.int32)
 
     # Create new axis index map and transpose the tensor accordingly
+    mask = tf.reduce_all(tf.not_equal(
+        tf.reshape(axes_range, shape=(-1, 1)),
+        tf.reshape(axis, shape=(1, -1))),
+        axis=1)  # boils down to not_in in 1D
     axis_map = tf.concat([(tf.boolean_mask(
         tensor=axes_range,
-        mask=tf.not_equal(axes_range, axis))),
+        mask=mask)),
         axis], axis=0)
     return tf.transpose(a=x, perm=axis_map)
 
