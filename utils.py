@@ -1,5 +1,6 @@
 """A collection of utility functions."""
 import tensorflow as tf
+from enum import Enum
 
 
 def not_in(x, list):
@@ -7,15 +8,21 @@ def not_in(x, list):
     pass
 
 
-def move_axis_to_last_dim(x, axis) -> tf.Tensor:
+class _SideDim(Enum):
+    First = "first",
+    Last = "last"
+
+
+def _move_axis_to_side_dim(x, axis, side: _SideDim) -> tf.Tensor:
     """
-    Move the given axes to last dimensions
+    Move the given axes to first or last dimensions
     Parameters
     ----------
     x the tf.Tensor of interest
     axis 0 or 1D tf.Tensor (or similar) specifying the axes that should be
-        moved to last dimension. If several axes are given they will be
+        moved to first or last last dimension. If several axes are given they will be
         ordered according to their order in the 'axis' argument.
+    side: "last" or "first"
     Returns
     -------
     A tf.Tensor with same rank as x but reordered dimensions.
@@ -35,11 +42,53 @@ def move_axis_to_last_dim(x, axis) -> tf.Tensor:
         tf.reshape(axes_range, shape=(-1, 1)),
         tf.reshape(axis, shape=(1, -1))),
         axis=1)  # boils down to not_in in 1D
-    axis_map = tf.concat([(tf.boolean_mask(
+
+    masked_range = tf.boolean_mask(
         tensor=axes_range,
-        mask=mask)),
-        axis], axis=0)
+        mask=mask)
+
+    if side == _SideDim.Last:
+        axis_map = tf.concat([masked_range,
+                              axis], axis=0)
+    elif side == _SideDim.First:
+        axis_map = tf.concat([axis,
+                              masked_range], axis=0)
+    else:
+        raise ValueError("side can be either first or last")
+
     return tf.transpose(a=x, perm=axis_map)
+
+
+def move_axis_to_last_dim(x, axis) -> tf.Tensor:
+    """
+    Move the given axes to last dimensions
+    Parameters
+    ----------
+    x the tf.Tensor of interest
+    axis 0 or 1D tf.Tensor (or similar) specifying the axes that should be
+        moved to last dimension. If several axes are given they will be
+        ordered according to their order in the 'axis' argument.
+    Returns
+    -------
+    A tf.Tensor with same rank as x but reordered dimensions.
+    """
+    return _move_axis_to_side_dim(x=x, axis=axis, side=_SideDim.Last)
+
+
+def move_axis_to_first_dim(x, axis) -> tf.Tensor:
+    """
+    Move the given axes to first dimensions
+    Parameters
+    ----------
+    x the tf.Tensor of interest
+    axis 0 or 1D tf.Tensor (or similar) specifying the axes that should be
+        moved to first dimension. If several axes are given they will be
+        ordered according to their order in the 'axis' argument.
+    Returns
+    -------
+    A tf.Tensor with same rank as x but reordered dimensions.
+    """
+    return _move_axis_to_side_dim(x=x, axis=axis, side=_SideDim.Last)
 
 
 def swapaxes(tensor, axis_1, axis_2):
