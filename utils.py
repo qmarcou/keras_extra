@@ -1,6 +1,30 @@
 """A collection of utility functions."""
 import tensorflow as tf
 
+
+def move_axis_to_last_dim(x, axis) -> tf.Tensor:
+    axes_range = tf.range(tf.rank(x), dtype=tf.int32)
+
+    # Prepare axis to length one
+    # Will throw an error if axis is not a scalar or length one
+    if isinstance(axis, tf.Tensor):
+        axis = tf.constant(axis, dtype=tf.int32, shape=(1,))
+    else:
+        axis = tf.reshape(axis, shape=(1,))
+        axis = tf.cast(x=axis, dtype=tf.int32)
+
+    # Create new axis index map and transpose the tensor accordingly
+    axis_map = tf.concat([(tf.boolean_mask(
+        tensor=axes_range,
+        mask=tf.not_equal(axes_range, axis))),
+        axis], axis=0)
+    return tf.transpose(a=x, perm=axis_map)
+
+
+def swapaxes(tensor, axis_1, axis_2):
+    pass
+
+
 # Adapted from tensorflow-ranking v0.6.0, utils.py
 # Last commit to file a2f2d1433523ed2bf0bb3308b533d48e275d7fd0
 # Copyright 2022 The TensorFlow Ranking Authors.
