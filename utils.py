@@ -21,7 +21,8 @@ def _move_axis_to_side_dim(x, axis, side: _SideDim) -> tf.Tensor:
     x the tf.Tensor of interest
     axis 0 or 1D tf.Tensor (or similar) specifying the axes that should be
         moved to first or last last dimension. If several axes are given they will be
-        ordered according to their order in the 'axis' argument.
+        ordered according to their order in the 'axis' argument. Axis values
+        must be in the range -rank:rank.
     side: "last" or "first"
     Returns
     -------
@@ -36,6 +37,11 @@ def _move_axis_to_side_dim(x, axis, side: _SideDim) -> tf.Tensor:
     else:
         axis = tf.reshape(axis, shape=(-1,))
         axis = tf.cast(x=axis, dtype=tf.int32)
+
+    # Get actual axis indices if any axis is <0
+    neg_axis = tf.less(axis, 0)
+    if tf.reduce_any(neg_axis):
+        axis = tf.where(condition=neg_axis, x=tf.rank(x)+axis, y=axis)
 
     # Create new axis index map and transpose the tensor accordingly
     mask = tf.reduce_all(tf.not_equal(
