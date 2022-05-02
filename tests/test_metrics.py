@@ -46,7 +46,8 @@ class TestRankAtPercentile(tf.test.TestCase):
 
         self.assertAllEqual(np.array([4, 3, 1]),
                             metrics.rank_at_percentile(y_true, y_pred, q=50,
-                                                       no_true_label_value=1.0))
+                                                       no_true_label_value=1.0,
+                                                       interpolation='linear'))
 
     def test_metric(self):
         pass

@@ -86,7 +86,8 @@ def stateless_coverage(y_true, y_pred, sample_weight=None,
 
 
 def rank_at_percentile(y_true, y_pred, q,
-                       no_true_label_value=None) -> tf.Tensor:
+                       no_true_label_value=None,
+                       interpolation='linear') -> tf.Tensor:
     y_true = tf.cast(y_true, dtype=tf.bool)
 
     pred_ranks = tf.argsort(y_pred, axis=-1, direction='DESCENDING',
@@ -101,7 +102,7 @@ def rank_at_percentile(y_true, y_pred, q,
         x=masked_ranks,
         q=q,
         axis=-1,
-        interpolation='linear')
+        interpolation=interpolation)
 
     if no_true_label_value is not None:
         # Filter possible NaNs and set the value to the requested filling value
@@ -146,19 +147,21 @@ class RankAtPercentile(keras.metrics.Mean):
     quartile), it will return the rank of the 3 label.
     """
 
-    def __init__(self, q, no_true_label_value=1.0,
+    def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
                  name='rankatpercentile', dtype=None, from_logits=True):
         self.from_logits = from_logits
         # FIXME check that q and notruevalue are scalars
         self.percentile = q
-        self._fill_value = no_true_label_value
+        self.fill_value = no_true_label_value
+        self.interpolation = interpolation
         super(RankAtPercentile, self).__init__(name=name,
                                                dtype=dtype)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         ranks = rank_at_percentile(y_true, y_pred,
                                    q=self.percentile,
-                                   no_true_label_value=self._fill_value)
+                                   no_true_label_value=self.fill_value,
+                                   interpolation=self.interpolation)
 
         super(RankAtPercentile, self).update_state(ranks,
                                                    sample_weight=sample_weight)
@@ -173,7 +176,7 @@ class RankAtPercentile(keras.metrics.Mean):
     quartile), it will return the rank of the 3 label.
     """
 
-    def __init__(self, q, no_true_label_value=1.0,
+    def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
                  name='rankatpercentile', dtype=None, from_logits=True):
         self.from_logits = from_logits
         # FIXME check that q and notruevalue are scalars
