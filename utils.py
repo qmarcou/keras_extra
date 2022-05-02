@@ -7,6 +7,7 @@ def not_in(x, list):
     """Check if values in x are contained in list"""
     pass
 
+
 def is_in(x, list):
     pass
 
@@ -44,7 +45,7 @@ def _move_axis_to_side_dim(x, axis, side: _SideDim) -> tf.Tensor:
     # Get actual axis indices if any axis is <0
     neg_axis = tf.less(axis, 0)
     if tf.reduce_any(neg_axis):
-        axis = tf.where(condition=neg_axis, x=tf.rank(x)+axis, y=axis)
+        axis = tf.where(condition=neg_axis, x=tf.rank(x) + axis, y=axis)
 
     # Create new axis index map and transpose the tensor accordingly
     mask = tf.reduce_all(tf.not_equal(
@@ -132,6 +133,17 @@ def shape_without_axis(x, axis):
     return masked_shape
 
 
+def compute_ranks(values: tf.Tensor,
+                  axis: int = -1,
+                  direction: str = 'ASCENDING',
+                  stable: bool = False) -> tf.Tensor:
+    sorted_indices = tf.argsort(values=values, axis=axis,
+                                direction=direction,
+                                stable=stable)
+    ranks = tf.argsort(values=sorted_indices, axis=axis,
+                       direction='ASCENDING',
+                       stable=False) + 1
+    return ranks
 
 
 # Adapted from tensorflow-ranking v0.6.0, utils.py

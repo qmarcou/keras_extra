@@ -53,6 +53,22 @@ class TestRankAtPercentile(tf.test.TestCase):
         pass
 
 
+class RankErrorsAtPercentile(tf.test.TestCase):
+    def test_rank_errors_at_percentile(self):
+        y_true = tf.constant([[0, 1, 0, 1, 0, 1, 0],
+                              [1, 0, 1, 0, 1, 0, 0],
+                              [0, 0, 0, 0, 0, 0, 0]])
+        y_pred = tf.constant([[-3, -2, -1, 0, 1, 2, 3],
+                              [3, 2, 1, 0, -1, -2, -3],
+                              [3, 2, 1, 0, -1, -2, -3]])
+
+        self.assertAllEqual(np.array([2, 1, 0]),
+                            metrics.rank_errors_at_percentile(
+                                y_true, y_pred, q=50,
+                                no_true_label_value=1.0,
+                                interpolation='linear'))
+
+
 class TestSubsetMetric(TestCase):
     def test_metric_construction(self):
         new_metric = metrics.subset_metric_builder(keras.metrics.Accuracy)

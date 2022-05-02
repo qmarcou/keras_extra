@@ -85,17 +85,19 @@ def stateless_coverage(y_true, y_pred, sample_weight=None,
                                    tf.float32)))
 
 
-def rank_at_percentile(y_true, y_pred, q,
+def rank_at_percentile(y_true: tf.Tensor, y_pred: tf.Tensor, q,
                        no_true_label_value=None,
                        interpolation='linear') -> tf.Tensor:
     y_true = tf.cast(y_true, dtype=tf.bool)
 
-    pred_ranks = tf.argsort(y_pred, axis=-1, direction='DESCENDING',
-                            stable=False) + 1
+    pred_ranks = utils.compute_ranks(values=y_pred, axis=-1,
+                                     direction='DESCENDING',
+                            stable=False)
     pred_ranks = tf.cast(pred_ranks, dtype=tf.float32)
-    mask = tf.fill(dims=tf.shape(y_true), value=np.nan)
+
+    template = tf.fill(dims=tf.shape(y_true), value=np.nan)
     # Set NaN rank for y_true=0
-    masked_ranks = tf.where(condition=y_true, x=pred_ranks, y=mask)
+    masked_ranks = tf.where(condition=y_true, x=pred_ranks, y=template)
 
     # Get rank at the specified percentile
     ranks = stats.nanpercentile(
@@ -112,6 +114,24 @@ def rank_at_percentile(y_true, y_pred, q,
         ranks = tf.where(condition=mask, x=filler,
                          y=ranks)
     return ranks
+
+
+def rank_errors_at_percentile(y_true, y_pred, q,
+                              no_true_label_value=None,
+                              interpolation='linear') -> tf.Tensor:
+    # First compute the rank of the true label at the given percentile
+    ranks = rank_at_percentile(y_true, y_pred,
+                               q=q,
+                               no_true_label_value=no_true_label_value,
+                               interpolation=interpolation)
+
+    # Now subtract the number of true labels at the corresponding
+    # percentile to get the number of errors at this percentile
+    true_labs_at_p = rank_at_percentile(y_true, y_true,
+                                        q=q,
+                                        no_true_label_value=no_true_label_value,
+                                        interpolation=interpolation)
+    return ranks - true_labs_at_p
 
 
 class Coverage(keras.metrics.Mean):
@@ -154,8 +174,8 @@ class RankAtPercentile(keras.metrics.Mean):
         self.percentile = q
         self.fill_value = no_true_label_value
         self.interpolation = interpolation
-        super(RankAtPercentile, self).__init__(name=name,
-                                               dtype=dtype)
+        super(RankErrorsAtPercentile, self).__init__(name=name,
+                                                     dtype=dtype)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         ranks = rank_at_percentile(y_true, y_pred,
@@ -163,10 +183,11 @@ class RankAtPercentile(keras.metrics.Mean):
                                    no_true_label_value=self.fill_value,
                                    interpolation=self.interpolation)
 
-        super(RankAtPercentile, self).update_state(ranks,
-                                                   sample_weight=sample_weight)
+        super(RankErrorsAtPercentile, self).update_state(ranks,
+                                                         sample_weight=sample_weight)
 
-class RankAtPercentile(keras.metrics.Mean):
+
+class RankErrorsAtPercentile(keras.metrics.Mean):
     """
     A Metric subclass to compute the average rank at a given percentile.
 
@@ -181,17 +202,20 @@ class RankAtPercentile(keras.metrics.Mean):
         self.from_logits = from_logits
         # FIXME check that q and notruevalue are scalars
         self.percentile = q
-        self._fill_value = no_true_label_value
-        super(RankAtPercentile, self).__init__(name=name,
-                                               dtype=dtype)
+        self.fill_value = no_true_label_value
+        self.interpolation = interpolation
+        super(RankErrorsAtPercentile, self).__init__(name=name,
+                                                     dtype=dtype)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        ranks = rank_at_percentile(y_true, y_pred,
-                                   q=self.percentile,
-                                   no_true_label_value=self._fill_value)
+        rank_errors = rank_errors_at_percentile(
+            y_true=y_true, y_pred=y_pred,
+            q=self.percentile,
+            no_true_label_value=self.fill_value,
+            interpolation=self.interpolation)
 
-        super(RankAtPercentile, self).update_state(ranks,
-                                                   sample_weight=sample_weight)
+        super(RankErrorsAtPercentile, self).update_state(rank_errors,
+                                                         sample_weight=sample_weight)
 
 
 def subset_metric_builder(metric_class: type[keras.metrics.Metric]):
