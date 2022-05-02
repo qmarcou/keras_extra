@@ -164,7 +164,21 @@ class MeanLabelPercentile(keras.metrics.Mean):
                  interpolation='linear',
                  name='meanLabelPercentile', dtype=None):
         # FIXME check that q and notruevalue are scalars
+        if not isinstance(q, tf.Tensor):
+            q = tf.constant(q)
+        q = tf.squeeze(q)
+        if tf.rank(q) > 0:
+            raise ValueError("Only scalar values are accepted for setting the "
+                             "'q' percentile value.")
         self.percentile = q
+
+        if no_true_label_value is not None:
+            if not isinstance(no_true_label_value, tf.Tensor):
+                no_true_label_value = tf.constant(no_true_label_value)
+            no_true_label_value = tf.squeeze(no_true_label_value)
+            if tf.rank(no_true_label_value) > 0:
+                raise ValueError("'no_true_label_value' must be a scalar "
+                                 "value or None")
         self.fill_value = no_true_label_value
         self.interpolation = interpolation
         self._compute_fn = percentile_fn
