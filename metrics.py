@@ -182,8 +182,8 @@ class MeanLabelPercentile(keras.metrics.Mean):
         self.fill_value = no_true_label_value
         self.interpolation = interpolation
         self._compute_fn = percentile_fn
-        super(RankErrorsAtPercentile, self).__init__(name=name,
-                                                     dtype=dtype)
+        super(MeanLabelPercentile, self).__init__(name=name,
+                                                  dtype=dtype)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         ranks = self._compute_fn(y_true, y_pred,
@@ -191,8 +191,8 @@ class MeanLabelPercentile(keras.metrics.Mean):
                                  no_true_label_value=self.fill_value,
                                  interpolation=self.interpolation)
 
-        super(RankErrorsAtPercentile, self).update_state(ranks,
-                                                         sample_weight=sample_weight)
+        super(MeanLabelPercentile, self).update_state(ranks,
+                                                      sample_weight=sample_weight)
 
 
 class RankAtPercentile(MeanLabelPercentile):
@@ -207,7 +207,7 @@ class RankAtPercentile(MeanLabelPercentile):
 
     def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
                  name='rankErrorsAtPercentile', dtype=None):
-        super(RankErrorsAtPercentile, self).__init__(
+        super(RankAtPercentile, self).__init__(
             percentile_fn=rank_at_percentile,
             q=q,
             no_true_label_value=no_true_label_value,
