@@ -7,18 +7,17 @@ from keras_utils import utils
 
 def _percentile_wrapper(x, q, axis, **kwargs) -> tf.Tensor:
     """A wrapper implementing checks that should be made in tfp.percentile"""
+    # Check if any dimension of x is of length 0
     if tf.reduce_any(tf.equal(tf.shape(x), 0)):
         if axis is not None:
             post_compute_shape = utils.shape_without_axis(x, axis)
         else:
-            if tf.rank(q) == 0:
-                return tf.constant(np.nan)
             post_compute_shape = tf.constant([], shape=(0,), dtype=tf.int32)
         q = tf.reshape(tensor=q, shape=(-1,))
         return_shape = tf.concat([tf.shape(q), post_compute_shape], axis=0)
-        return tf.fill(value=np.nan, dims=return_shape)
-
-    return tfp.stats.percentile(x=x, q=q, axis=axis, **kwargs)
+        return tf.squeeze(tf.fill(value=np.nan, dims=return_shape))
+    else:
+        return tfp.stats.percentile(x=x, q=q, axis=axis, **kwargs)
 
 
 def nanpercentile(x,

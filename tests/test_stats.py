@@ -18,16 +18,31 @@ class Test_NanPercentile(tf.test.TestCase):
         p = [10.0, 10.5, 25.0, 50.0, 75.0]
         self.assertAllEqual(stats.nanpercentile(x, p),
                             stats.nanpercentile(x_nan, p))
-        # Test case where only NaNs are provided
-        self.assertEqual(
-            tf.constant(True),
-            tf.math.is_nan(
-                stats.nanpercentile(tf.fill(value=np.nan, dims=(4,)),
-                                    q=50)))
 
-        rand_x = tf.random.uniform(shape=(2, 3, 4, 5))
+        # Test cases of only NaNs and
+        # correct shapes returned by _percentile_wrapper
+        x = [[np.nan] * 9,
+             [np.nan] * 9]
+        self.assertEqual(
+            True,
+            tf.math.is_nan(stats.nanpercentile(x,
+                                               q=50, axis=None)))
+        self.assertAllEqual(
+            np.array([True, True]),
+            tf.math.is_nan(stats.nanpercentile(x,
+                                               q=[50, 66.6], axis=None)))
+        x = [[1, 2, 3, 4, 5, 6, 7, 8, 9],
+             [np.nan] * 9]
+        self.assertAllEqual(
+            np.array([[False, True],
+                      [False, True]]),
+            tf.math.is_nan(
+                stats.nanpercentile(x,
+                                    q=[50, 66.6], axis=1)))
+
         # Check that without NaNs the function returns the same results
         # as tfp.stats.percentile
+        rand_x = tf.random.uniform(shape=(2, 3, 4, 5))
         self.assertAllEqual(
             tfp.stats.percentile(x=rand_x, q=50, axis=-1),
             stats.nanpercentile(x=rand_x, q=50, axis=-1)
@@ -54,11 +69,6 @@ class Test_NanPercentile(tf.test.TestCase):
             stats.nanpercentile(x=rand_x, q=[50, 75], axis=2),
             stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=2)
         )
-        # FIXME understand why this test fails
-        # self.assertAllEqual(
-        #     stats.nanpercentile(x=rand_x, q=[50, 75], axis=-1),
-        #     stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=-1)
-        # )
         self.assertAllEqual(
             stats.nanpercentile(x=rand_x, q=[50, 75], axis=[1, 2, 3]),
             stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=[1, 2, 3])
