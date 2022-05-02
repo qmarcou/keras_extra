@@ -3,6 +3,7 @@ from numpy import testing
 import keras.metrics
 import tensorflow as tf
 from keras_utils import metrics
+import numpy as np
 
 
 class TestCoverage(TestCase):
@@ -32,6 +33,23 @@ class TestCoverage(TestCase):
         m = metrics.Coverage(from_logits=True)
         m.update_state(y_true, y_pred)
         self.assertEqual(3.0, float(m.result()))
+
+
+class TestRankAtPercentile(tf.test.TestCase):
+    def test_rank_at_percentile(self):
+        y_true = [[0, 1, 0, 1, 0, 1, 0],
+                  [1, 0, 1, 0, 1, 0, 0],
+                  [0, 0, 0, 0, 0, 0, 0]]
+        y_pred = [[-3, -2, -1, 0, 1, 2, 3],
+                  [3, 2, 1, 0, -1, -2, -3],
+                  [3, 2, 1, 0, -1, -2, -3]]
+
+        self.assertAllEqual(np.array([4, 3, 1]),
+                            metrics.rank_at_percentile(y_true, y_pred, q=50,
+                                                       no_true_label_value=1.0))
+
+    def test_metric(self):
+        pass
 
 
 class TestSubsetMetric(TestCase):
