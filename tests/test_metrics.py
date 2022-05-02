@@ -50,7 +50,17 @@ class TestRankAtPercentile(tf.test.TestCase):
                                                        interpolation='linear'))
 
     def test_metric(self):
-        pass
+        y_true = [[0, 1, 0, 1, 0, 1, 0],
+                  [1, 0, 1, 0, 1, 0, 0],
+                  [0, 0, 0, 0, 0, 0, 0]]
+        y_pred = [[-3, -2, -1, 0, 1, 2, 3],
+                  [3, 2, 1, 0, -1, -2, -3],
+                  [3, 2, 1, 0, -1, -2, -3]]
+        rap = metrics.RankAtPercentile(q=50, no_true_label_value=1.0,
+                                       interpolation='linear')
+
+        rap.update_state(y_true, y_pred)
+        self.assertAllCloseAccordingToType(2.666666, rap.result())
 
 
 class RankErrorsAtPercentile(tf.test.TestCase):
@@ -67,6 +77,19 @@ class RankErrorsAtPercentile(tf.test.TestCase):
                                 y_true, y_pred, q=50,
                                 no_true_label_value=1.0,
                                 interpolation='linear'))
+
+    def test_class(self):
+        y_true = [[0, 1, 0, 1, 0, 1, 0],
+                  [1, 0, 1, 0, 1, 0, 0],
+                  [0, 0, 0, 0, 0, 0, 0]]
+        y_pred = [[-3, -2, -1, 0, 1, 2, 3],
+                  [3, 2, 1, 0, -1, -2, -3],
+                  [3, 2, 1, 0, -1, -2, -3]]
+        reap = metrics.RankErrorsAtPercentile(q=50, no_true_label_value=1.0,
+                                              interpolation='linear')
+
+        reap.update_state(y_true, y_pred)
+        self.assertEqual(1.0, reap.result())
 
 
 class TestSubsetMetric(TestCase):

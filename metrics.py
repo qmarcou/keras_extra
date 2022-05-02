@@ -88,6 +88,7 @@ def stateless_coverage(y_true, y_pred, sample_weight=None,
 def rank_at_percentile(y_true: tf.Tensor, y_pred: tf.Tensor, q,
                        no_true_label_value=None,
                        interpolation='linear') -> tf.Tensor:
+    # TODO add documentation
     y_true = tf.cast(y_true, dtype=tf.bool)
 
     pred_ranks = utils.compute_ranks(values=y_pred, axis=-1,
@@ -119,6 +120,7 @@ def rank_at_percentile(y_true: tf.Tensor, y_pred: tf.Tensor, q,
 def rank_errors_at_percentile(y_true, y_pred, q,
                               no_true_label_value=None,
                               interpolation='linear') -> tf.Tensor:
+    # TODO add documentation
     # First compute the rank of the true label at the given percentile
     ranks = rank_at_percentile(y_true, y_pred,
                                q=q,
