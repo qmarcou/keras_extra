@@ -92,7 +92,7 @@ def rank_at_percentile(y_true: tf.Tensor, y_pred: tf.Tensor, q,
 
     pred_ranks = utils.compute_ranks(values=y_pred, axis=-1,
                                      direction='DESCENDING',
-                            stable=False)
+                                     stable=False)
     pred_ranks = tf.cast(pred_ranks, dtype=tf.float32)
 
     template = tf.fill(dims=tf.shape(y_true), value=np.nan)
@@ -157,65 +157,73 @@ class Coverage(keras.metrics.Mean):
                                            sample_weight=sample_weight)
 
 
-class RankAtPercentile(keras.metrics.Mean):
-    """
-    A Metric subclass to compute the average rank at a given percentile.
+class MeanLabelPercentile(keras.metrics.Mean):
+    """A generic class for percentile based metrics"""
 
-    This class wraps call to the rank_at_percentile function to provide a
-    Keras Metric subclass. It returns the average rank at a specified
-    percentile of true labels. E.g when 4 labels are true and q=75 (third
-    quartile), it will return the rank of the 3 label.
-    """
-
-    def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
-                 name='rankatpercentile', dtype=None, from_logits=True):
-        self.from_logits = from_logits
+    def __init__(self, percentile_fn, q, no_true_label_value=1.0,
+                 interpolation='linear',
+                 name='meanLabelPercentile', dtype=None):
         # FIXME check that q and notruevalue are scalars
         self.percentile = q
         self.fill_value = no_true_label_value
         self.interpolation = interpolation
+        self._compute_fn = percentile_fn
         super(RankErrorsAtPercentile, self).__init__(name=name,
                                                      dtype=dtype)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        ranks = rank_at_percentile(y_true, y_pred,
-                                   q=self.percentile,
-                                   no_true_label_value=self.fill_value,
-                                   interpolation=self.interpolation)
+        ranks = self._compute_fn(y_true, y_pred,
+                                 q=self.percentile,
+                                 no_true_label_value=self.fill_value,
+                                 interpolation=self.interpolation)
 
         super(RankErrorsAtPercentile, self).update_state(ranks,
                                                          sample_weight=sample_weight)
 
 
-class RankErrorsAtPercentile(keras.metrics.Mean):
+class RankAtPercentile(MeanLabelPercentile):
     """
     A Metric subclass to compute the average rank at a given percentile.
 
     This class wraps call to the rank_at_percentile function to provide a
     Keras Metric subclass. It returns the average rank at a specified
     percentile of true labels. E.g when 4 labels are true and q=75 (third
-    quartile), it will return the rank of the 3 label.
+    quartile), it will return the rank of the 3rd true label.
     """
 
     def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
-                 name='rankatpercentile', dtype=None, from_logits=True):
-        self.from_logits = from_logits
-        # FIXME check that q and notruevalue are scalars
-        self.percentile = q
-        self.fill_value = no_true_label_value
-        self.interpolation = interpolation
-        super(RankErrorsAtPercentile, self).__init__(name=name,
-                                                     dtype=dtype)
+                 name='rankErrorsAtPercentile', dtype=None):
+        super(RankErrorsAtPercentile, self).__init__(
+            percentile_fn=rank_at_percentile,
+            q=q,
+            no_true_label_value=no_true_label_value,
+            interpolation=interpolation,
+            name=name,
+            dtype=dtype)
 
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        rank_errors = rank_errors_at_percentile(
-            y_true=y_true, y_pred=y_pred,
-            q=self.percentile,
-            no_true_label_value=self.fill_value,
-            interpolation=self.interpolation)
 
-        super(RankErrorsAtPercentile, self).update_state(rank_errors,
-                                                         sample_weight=sample_weight)
+class RankErrorsAtPercentile(MeanLabelPercentile):
+    """
+    A Metric subclass to compute average number of ranking at a given
+     percentile.
+
+    This class wraps call to the rank_errors_at_percentile function to provide
+    a Keras Metric subclass. It returns the average number of ranking errors
+    at a specified percentile of true labels.
+    E.g when 4 labels are true and q=75 (third quartile),
+     it will return the number of erroneous labels ranked above the 3rd true
+     label.
+    """
+
+    def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
+                 name='rankErrorsAtPercentile', dtype=None):
+        super(RankErrorsAtPercentile, self).__init__(
+            percentile_fn=rank_errors_at_percentile,
+            q=q,
+            no_true_label_value=no_true_label_value,
+            interpolation=interpolation,
+            name=name,
+            dtype=dtype)
 
 
 def subset_metric_builder(metric_class: type[keras.metrics.Metric]):
