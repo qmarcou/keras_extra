@@ -597,6 +597,18 @@ _DEFAULT_RANK_DISCOUNT_FN = lambda rank: tf.math.log(2.) / tf.math.log1p(rank)
 
 
 @tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
+def identity(label):
+    """Identity function that returns the input label.
+  Args:
+    label: A `Tensor` or anything that can be converted to a tensor using
+      `tf.convert_to_tensor`.
+  Returns:
+    The input label.
+  """
+    return label
+
+
+@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
 def inverse(rank):
     """Computes the inverse of input rank.
   Args:
@@ -773,7 +785,7 @@ class _NDCGMetricImpl(_RankingMetricImpl):
         per_list_weights = _per_example_weights_to_per_list_weights(
             weights=weights,
             relevance=self._gain_fn(tf.cast(labels, dtype=tf.float32)))
-        return per_list_ndcg,
+        return per_list_ndcg, per_list_weights
 
 
 def _per_example_weights_to_per_list_weights(weights, relevance):
