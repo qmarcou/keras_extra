@@ -33,17 +33,22 @@ def nanpercentile(x,
     Parameters
     ----------
     x The Tensor of interest
-    q A Tensor containing one or several percentile values of interest
-    kwargs kwargs for the tf.stats.percentile function, except 'axis' kwarg. The
-        'axis' kwarg is not accepted, this function will flatten the input
-        tensor x before computing the percentiles.
+    q A Tensor or alike containing one or several percentile values of
+        interest. Must be 0 or 1D Tensor like.
+    kwargs kwargs for the tf.stats.percentile function.
 
     Returns
     -------
-    A rank(1) Tensor of length q.
+    A Tensor similar to the one returned by tfp.stats.percentile.
     """
     if keepdims:
         raise NotImplementedError("keepdims=True option is not implemented.")
+
+    q = tf.convert_to_tensor(q)
+    q_rank = tf.rank(q)
+    # Check that q has correct rank
+    tf.assert_less(q_rank, 2,
+                   message="q must be a 0 or 1D Tensor or alike.")
 
     if axis is None or (tf.rank(x) == 1 and axis == 0):
         # If axis is None simply flatten the x Tensor and compute percentile
@@ -59,14 +64,13 @@ def nanpercentile(x,
                                    name=name)
     else:
         # Check and process the axis argument
-        if not isinstance(axis, tf.Tensor):
-            axis = tf.constant(axis, dtype=tf.int32)
-        if tf.rank(axis) > 1:
-            raise ValueError(
-                "Expected a 0 or 1D tensor like object for axis, got"
-                " rank." + str(tf.rank(axis).numpy()))
-        else:
-            axis = tf.reshape(tensor=axis, shape=(-1,))
+        axis = tf.convert_to_tensor(axis, dtype=tf.int32)
+        # raise an exception if axis is more than 1D
+        tf.assert_less(tf.rank(axis), 2,
+                       message="Expected a 0 or 1D tensor like object for "
+                               "'axis', got a higher rank (=x) tf.Tensor.")
+
+        axis = tf.reshape(tensor=axis, shape=(-1,))
 
         # Send the collapsed axes to last dimensions
         x = utils.move_axis_to_last_dim(x=x, axis=axis)
@@ -86,7 +90,7 @@ def nanpercentile(x,
 
         # Finally apply the percentile function to each row of this ragged
         # Tensor
-        q_rank = tf.rank(q)
+
         if tf.equal(q_rank, 0):
             # Expected shape of the Tensor returned by tfp.stats.percentile
             expect_shape = ()
@@ -110,7 +114,7 @@ def nanpercentile(x,
         restored_dims = init_shape[0:-axis_len]
         if tf.equal(q_rank, 0):
             return tf.reshape(tensor=res, shape=restored_dims)
-        elif tf.equal(q_rank, 1):
+        else:  # rank==1, guaranteed by the assertion on q_rank
             res = tf.reshape(tensor=res,
                              shape=tf.concat(
                                  [restored_dims,
@@ -121,7 +125,3 @@ def nanpercentile(x,
             # axis the same way it would have been returned by
             # tfp.stats.percentile
             return utils.move_axis_to_first_dim(x=res, axis=-1)
-        else:
-            # Should never be reached since tfp.stats.percentile should have
-            # thrown an exception already
-            raise ValueError("q must be a 0 or 1D Tensor or alike.")

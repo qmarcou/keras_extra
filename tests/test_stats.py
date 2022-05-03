@@ -77,3 +77,16 @@ class Test_NanPercentile(tf.test.TestCase):
             stats.nanpercentile(x=rand_x, q=[50, 75], axis=None),
             stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=None)
         )
+
+        # Test error handling for invalid arguments
+        self.assertRaises(tf.errors.InvalidArgumentError,
+                          stats.nanpercentile,
+                          x=rand_x, q=[[50, 75], [20, 80]], axis=None)
+
+        self.assertRaises(tf.errors.InvalidArgumentError,
+                          stats.nanpercentile,
+                          x=rand_x, q=[[50, 75], [20, 80]], axis=-1)
+
+        self.assertRaises(tf.errors.InvalidArgumentError,
+                          stats.nanpercentile,
+                          x=rand_x, q=[50, 75], axis=[[-1], [-2]])
