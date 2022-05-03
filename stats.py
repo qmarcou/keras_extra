@@ -90,12 +90,6 @@ def nanpercentile(x,
 
         # Finally apply the percentile function to each row of this ragged
         # Tensor
-
-        if tf.equal(q_rank, 0):
-            # Expected shape of the Tensor returned by tfp.stats.percentile
-            expect_shape = ()
-        else:
-            expect_shape = (None,)
         res = tf.map_fn(
             fn=lambda t: _percentile_wrapper(
                 x=t, q=q, axis=None,
@@ -106,7 +100,7 @@ def nanpercentile(x,
                 name=name),
             elems=ragged_x,
             # enforce return of tf.Tensor instead if tf.RaggedTensor
-            fn_output_signature=tf.TensorSpec(shape=expect_shape),
+            fn_output_signature=tf.TensorSpec(shape=None, dtype=x.dtype),
             name="compute_percentile"
         )
 

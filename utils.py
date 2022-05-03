@@ -36,10 +36,7 @@ def _move_axis_to_side_dim(x, axis, side: _SideDim) -> tf.Tensor:
 
     # Prepare axis to 1D tensor
     # Will throw an error if axis is not a scalar or 1D tensor
-    if isinstance(axis, tf.Tensor):
-        axis = tf.constant(axis, dtype=tf.int32)
-    else:
-        axis = tf.cast(x=axis, dtype=tf.int32)
+    axis = tf.convert_to_tensor(axis, dtype=tf.int32)
     axis = tf.reshape(axis, shape=(-1,))
 
     # Get actual axis indices if any axis is <0
