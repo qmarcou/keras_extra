@@ -291,11 +291,11 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
     @track_emissions(offline=True, country_iso_code="FRA")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
-            train_dev_frac, x_dev, y_dev, dev_metrics,
+            x_dev, y_dev, dev_metrics,
             earlystop_monitor: str = 'val_loss',
             **kwargs):
         early_stopping_callback = EarlyStopping(monitor=earlystop_monitor,
-                                                min_delta=0.1,
+                                                min_delta=0.01,
                                                 patience=10,
                                                 verbose=1,
                                                 restore_best_weights=True)
@@ -306,7 +306,6 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         kwargs["callbacks"] = callbacks
         history = model.fit(x, y,
                             shuffle=True,
-                            validation_split=train_dev_frac,
                             **kwargs)
         return history
         dev_data = (x_dev, y_dev)
