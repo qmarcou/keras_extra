@@ -294,6 +294,11 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             x_dev, y_dev, dev_metrics,
             earlystop_monitor: str = 'val_loss',
             **kwargs):
+        verbose = kwargs.get('verbose')
+        if verbose is None:
+            verbose = False
+        else:
+            kwargs.pop('verbose')
         early_stopping_callback = EarlyStopping(monitor=earlystop_monitor,
                                                 min_delta=0.01,
                                                 patience=10,
@@ -306,6 +311,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         kwargs["callbacks"] = callbacks
         history = model.fit(x, y,
                             shuffle=True,
+                            verbose=False,
                             **kwargs)
         return history
         dev_data = (x_dev, y_dev)
