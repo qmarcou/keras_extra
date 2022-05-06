@@ -288,7 +288,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            output_layer=output_layer,
                                            **build_kwargs)
 
-    @track_emissions(offline=True, country_iso_code="FRA")
+    #@track_emissions(offline=True, country_iso_code="FRA")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
             x_dev, y_dev, dev_metrics,
@@ -311,7 +311,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         kwargs["callbacks"] = callbacks
         history = model.fit(x, y,
                             shuffle=True,
-                            verbose=False,
+                            verbose=verbose,
                             **kwargs)
         return history
         dev_data = (x_dev, y_dev)
