@@ -42,7 +42,7 @@ class Test_NanPercentile(tf.test.TestCase):
 
         # Check that without NaNs the function returns the same results
         # as tfp.stats.percentile
-        rand_x = tf.random.uniform(shape=(2, 3, 4, 5))
+        rand_x = tf.random.uniform(shape=(2, 3, 200, 5))
         self.assertAllEqual(
             tfp.stats.percentile(x=rand_x, q=50, axis=-1),
             stats.nanpercentile(x=rand_x, q=50, axis=-1)
@@ -61,19 +61,23 @@ class Test_NanPercentile(tf.test.TestCase):
         )
 
         # Check NaN stability
-        rand_x_nan = tf.concat([tf.fill(value=np.nan, dims=(2, 3, 1, 5)),
+        rand_x_nan = tf.concat([tf.fill(value=np.nan, dims=(2, 3, 10, 5)),
                                 rand_x,
-                                tf.fill(value=np.nan, dims=(2, 3, 1, 5))],
+                                tf.fill(value=np.nan, dims=(2, 3, 10, 5))],
                                axis=2)
-        self.assertAllEqual(
+        self.assertAllCloseAccordingToType(
+            stats.nanpercentile(x=rand_x, q=50, axis=2),
+            stats.nanpercentile(x=rand_x_nan, q=50, axis=2)
+        )
+        self.assertAllCloseAccordingToType(
             stats.nanpercentile(x=rand_x, q=[50, 75], axis=2),
             stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=2)
         )
-        self.assertAllEqual(
+        self.assertAllCloseAccordingToType(
             stats.nanpercentile(x=rand_x, q=[50, 75], axis=[1, 2, 3]),
             stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=[1, 2, 3])
         )
-        self.assertAllEqual(
+        self.assertAllCloseAccordingToType(
             stats.nanpercentile(x=rand_x, q=[50, 75], axis=None),
             stats.nanpercentile(x=rand_x_nan, q=[50, 75], axis=None)
         )

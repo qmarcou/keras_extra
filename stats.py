@@ -5,19 +5,35 @@ import numpy as np
 from keras_utils import utils
 
 
+def _return_nan_percentile(x, q, axis):
+    if axis is not None:
+        post_compute_shape = utils.shape_without_axis(x, axis)
+    else:
+        post_compute_shape = tf.constant([], shape=(0,), dtype=tf.int32)
+    q = tf.reshape(tensor=q, shape=(-1,))
+    return_shape = tf.concat([tf.shape(q), post_compute_shape], axis=0)
+    return tf.squeeze(tf.fill(value=np.nan, dims=return_shape))
+
+
 def _percentile_wrapper(x, q, axis, **kwargs) -> tf.Tensor:
     """A wrapper implementing checks that should be made in tfp.percentile"""
     # Check if any dimension of x is of length 0
-    if tf.reduce_any(tf.equal(tf.shape(x), 0)):
-        if axis is not None:
-            post_compute_shape = utils.shape_without_axis(x, axis)
-        else:
-            post_compute_shape = tf.constant([], shape=(0,), dtype=tf.int32)
-        q = tf.reshape(tensor=q, shape=(-1,))
-        return_shape = tf.concat([tf.shape(q), post_compute_shape], axis=0)
-        return tf.squeeze(tf.fill(value=np.nan, dims=return_shape))
-    else:
-        return tfp.stats.percentile(x=x, q=q, axis=axis, **kwargs)
+    # if tf.reduce_any(tf.equal(tf.shape(x), 0)):
+    #     if axis is not None:
+    #         post_compute_shape = utils.shape_without_axis(x, axis)
+    #     else:
+    #         post_compute_shape = tf.constant([], shape=(0,), dtype=tf.int32)
+    #     q = tf.reshape(tensor=q, shape=(-1,))
+    #     return_shape = tf.concat([tf.shape(q), post_compute_shape], axis=0)
+    #     return tf.squeeze(tf.fill(value=np.nan, dims=return_shape))
+    # else:
+    #     return tfp.stats.percentile(x=x, q=q, axis=axis, **kwargs)
+
+    cond = tf.reduce_any(tf.equal(tf.shape(x), 0))
+    return tf.cond(pred=cond,
+                   true_fn=lambda: _return_nan_percentile(x=x, q=q, axis=axis),
+                   false_fn=lambda: tfp.stats.percentile(x=x, q=q, axis=axis,
+                                                         **kwargs))
 
 
 def nanpercentile(x,
@@ -37,6 +53,11 @@ def nanpercentile(x,
         interest. Must be 0 or 1D Tensor like.
     kwargs kwargs for the tf.stats.percentile function.
 
+    Note: #FIXME due to the way NaN are handled to enable the use of vectorized
+            operations results might not be fully consistent when the number of
+             nans is important compared to the total number of values,
+             especially when discontinuous interpolations are used
+
     Returns
     -------
     A Tensor similar to the one returned by tfp.stats.percentile.
@@ -44,7 +65,9 @@ def nanpercentile(x,
     if keepdims:
         raise NotImplementedError("keepdims=True option is not implemented.")
 
+    # enforce float type for later computation on q
     q = tf.convert_to_tensor(q)
+    q = tf.cast(x=q, dtype=tf.float64)
     q_rank = tf.rank(q)
     # Check that q has correct rank
     tf.assert_less(q_rank, 2,
@@ -84,25 +107,54 @@ def nanpercentile(x,
         )[-1]
         x = tf.reshape(tensor=x, shape=(-1, axis_collapsed_len))
 
-        # Now check nan values and create a ragged Tensor from the boolean mask
-        mask = tf.logical_not(tf.math.is_nan(x))
-        ragged_x = tf.ragged.boolean_mask(data=x, mask=mask, name='drop_NaNs')
-
-        # Finally apply the percentile function to each row of this ragged
-        # Tensor
-        res = tf.map_fn(
-            fn=lambda t: _percentile_wrapper(
-                x=t, q=q, axis=None,
-                interpolation=interpolation,
-                keepdims=False,
-                validate_args=validate_args,
-                preserve_gradients=preserve_gradients,
-                name=name),
-            elems=ragged_x,
-            # enforce return of tf.Tensor instead if tf.RaggedTensor
-            fn_output_signature=tf.TensorSpec(shape=None, dtype=x.dtype),
-            name="compute_percentile"
+        # Now check nan values and count them et replace them by +Inf
+        mask = tf.math.is_nan(x)
+        x = tf.where(condition=mask,
+                     x=tf.constant(np.inf, shape=(1, 1)),
+                     y=x,
+                     name='cast_NaN_to_inf')
+        nan_count = tf.reduce_sum(
+            tf.cast(x=mask, dtype=tf.int64),
+            axis=1,
+            keepdims=True  # to obtain a shape(-1,1) Tensor for broadcast
         )
+        # Compute the effective percentiles to compute for each row as a Tensor
+        # of shape (shape(x)[0],len(q))
+        eff_q = tf.multiply(tf.reshape(q, shape=(1, -1)),
+                            (tf.constant(1, dtype=tf.float64) -
+                             tf.divide(tf.cast(nan_count, dtype=tf.float64)
+                                       , tf.cast(axis_collapsed_len,
+                                                 dtype=tf.float64))))
+        # Flatten it and feed it to the percentile function
+        # note that this may not be efficient since it requires to compute
+        # many times unuseful percentiles, however this is the only way I found
+        # to vectorize the operation, in the end making the operation more
+        # efficient, and the sort operation is performed only once anyway
+        eff_q = tf.reshape(eff_q, shape=(-1,))
+        percentiles = tfp.stats.percentile(
+            x=x, q=eff_q, axis=1,
+            interpolation=interpolation,
+            keepdims=False,
+            validate_args=validate_args,
+            preserve_gradients=preserve_gradients,
+            name=name)
+        # Now reshape the result
+        percentiles = tf.reshape(
+            percentiles,
+            shape=(tf.shape(x)[0],
+                   tf.shape(tf.reshape(q, shape=(-1,)))[0],
+                   tf.shape(x)[0]))
+        # move the q axis to the first axis
+        percentiles = utils.move_axis_to_first_dim(x=percentiles, axis=1)
+        # Now take the diagonal over the last 2 dimensions
+        res = tf.linalg.diag_part(percentiles)
+
+        # Finally replace np.inf values introduced by "empty" vectors by nan
+        filler = tf.constant(np.nan, shape=(1, 1))
+        mask = tf.math.is_inf(res)
+        res = tf.where(condition=mask,
+                       x=filler,
+                       y=res)
 
         # Reshape vector or 2D result to the correct shape
         restored_dims = init_shape[0:-axis_len]
@@ -111,11 +163,10 @@ def nanpercentile(x,
         else:  # rank==1, guaranteed by the assertion on q_rank
             res = tf.reshape(tensor=res,
                              shape=tf.concat(
-                                 [restored_dims,
-                                  tf.slice(tf.shape(q), begin=(0,),
-                                           size=(1,))],
+                                 [tf.slice(tf.shape(q), begin=(0,),
+                                           size=(1,)),
+                                  restored_dims
+                                  ],
                                  axis=0))
-            # Now move the last axis for different percentiles to the first
-            # axis the same way it would have been returned by
-            # tfp.stats.percentile
-            return utils.move_axis_to_first_dim(x=res, axis=-1)
+
+            return res
