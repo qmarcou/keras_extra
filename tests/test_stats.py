@@ -7,7 +7,7 @@ import numpy as np
 
 class Test_NanPercentile(tf.test.TestCase):
     def test_nanpercentile(self):
-        for interp in ('higher', 'lower', 'midpoint'):
+        for interp in ('linear', 'lower', 'higher', 'midpoint'):
             # Test 1D case
             x = tf.constant([1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=tf.float32)
             self.assertEqual(5, stats.nanpercentile(x, 50,

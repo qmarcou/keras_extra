@@ -39,7 +39,7 @@ def _percentile_wrapper(x, q, axis, **kwargs) -> tf.Tensor:
 def nanpercentile(x,
                   q,
                   axis=None,
-                  interpolation=None,
+                  interpolation='linear',
                   keepdims=False,
                   validate_args=False,
                   preserve_gradients=True,
@@ -53,6 +53,13 @@ def nanpercentile(x,
         interest. Must be 0 or 1D Tensor like.
     kwargs kwargs for the tf.stats.percentile function.
 
+    preserve_gradients
+    validate_args
+    axis
+    interpolation ('linear', 'lower', 'higher','midpoint'). Note that 'nearest'
+        is NOT supported due to its instability after conversion to effective
+        q.
+    keepdims
     Note: #FIXME due to the way NaN are handled to enable the use of vectorized
             operations results might not be fully consistent when the number of
              nans is important compared to the total number of values,
@@ -64,6 +71,14 @@ def nanpercentile(x,
     """
     if keepdims:
         raise NotImplementedError("keepdims=True option is not implemented.")
+
+    allowed_interpolations = {'linear', 'lower', 'higher',
+                              'midpoint'}
+
+    if interpolation not in allowed_interpolations:
+        raise ValueError(
+            'Argument `interpolation` must be in {}. Found {}.'.format(
+                allowed_interpolations, interpolation))
 
     # enforce float type for later computation on q
     q = tf.convert_to_tensor(q)
@@ -120,11 +135,14 @@ def nanpercentile(x,
         )
         # Compute the effective percentiles to compute for each row as a Tensor
         # of shape (shape(x)[0],len(q))
+        # eff_q  = q*(N_tot-N_nan-1)/(N_tot-1)
         eff_q = tf.multiply(tf.reshape(q, shape=(1, -1)),
-                            (tf.constant(1, dtype=tf.float64) -
-                             tf.divide(tf.cast(nan_count, dtype=tf.float64)
-                                       , tf.cast(axis_collapsed_len,
-                                                 dtype=tf.float64))))
+                            tf.divide((tf.cast(axis_collapsed_len,
+                                               dtype=tf.float64)
+                                       - tf.cast(nan_count,
+                                                 dtype=tf.float64) - 1.0)
+                                      , tf.cast(axis_collapsed_len,
+                                                dtype=tf.float64) - 1.0))
         # Flatten it and feed it to the percentile function
         # note that this may not be efficient since it requires to compute
         # many times unuseful percentiles, however this is the only way I found
