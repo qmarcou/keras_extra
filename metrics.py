@@ -87,7 +87,7 @@ def stateless_coverage(y_true, y_pred, sample_weight=None,
 
 def rank_at_percentile(y_true: tf.Tensor, y_pred: tf.Tensor, q,
                        no_true_label_value=None,
-                       interpolation='midpoint') -> tf.Tensor:
+                       interpolation='linear') -> tf.Tensor:
     # TODO add documentation
     y_true = tf.cast(y_true, dtype=tf.bool)
 
@@ -119,7 +119,7 @@ def rank_at_percentile(y_true: tf.Tensor, y_pred: tf.Tensor, q,
 
 def rank_errors_at_percentile(y_true, y_pred, q,
                               no_true_label_value=None,
-                              interpolation='midpoint') -> tf.Tensor:
+                              interpolation='linear') -> tf.Tensor:
     # TODO add documentation
     # First compute the rank of the true label at the given percentile
     ranks = rank_at_percentile(y_true, y_pred,
@@ -163,7 +163,7 @@ class MeanLabelPercentile(keras.metrics.Mean):
     """A generic class for percentile based metrics"""
 
     def __init__(self, percentile_fn, q, no_true_label_value=1.0,
-                 interpolation='midpoint',
+                 interpolation='linear',
                  name='meanLabelPercentile', dtype=None):
         # FIXME check that q and notruevalue are scalars
         if not isinstance(q, tf.Tensor):
@@ -207,7 +207,7 @@ class RankAtPercentile(MeanLabelPercentile):
     quartile), it will return the rank of the 3rd true label.
     """
 
-    def __init__(self, q, no_true_label_value=1.0, interpolation='midpoint',
+    def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
                  name='rankErrorsAtPercentile', dtype=None):
         super(RankAtPercentile, self).__init__(
             percentile_fn=rank_at_percentile,
@@ -231,7 +231,7 @@ class RankErrorsAtPercentile(MeanLabelPercentile):
      label.
     """
 
-    def __init__(self, q, no_true_label_value=1.0, interpolation='midpoint',
+    def __init__(self, q, no_true_label_value=1.0, interpolation='linear',
                  name='rankErrorsAtPercentile', dtype=None):
         super(RankErrorsAtPercentile, self).__init__(
             percentile_fn=rank_errors_at_percentile,
