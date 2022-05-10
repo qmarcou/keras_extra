@@ -39,7 +39,7 @@ def _percentile_wrapper(x, q, axis, **kwargs) -> tf.Tensor:
 def nanpercentile(x,
                   q,
                   axis=None,
-                  interpolation=None,
+                  interpolation='midpoint',
                   keepdims=False,
                   validate_args=False,
                   preserve_gradients=True,
@@ -56,7 +56,9 @@ def nanpercentile(x,
     Note: #FIXME due to the way NaN are handled to enable the use of vectorized
             operations results might not be fully consistent when the number of
              nans is important compared to the total number of values,
-             especially when discontinuous interpolations are used
+             especially when discontinuous interpolations are used. This is
+             most likely related to the "fractional" part computation of the
+             index that depends on the total size
 
     Returns
     -------
@@ -64,6 +66,12 @@ def nanpercentile(x,
     """
     if keepdims:
         raise NotImplementedError("keepdims=True option is not implemented.")
+
+    allowed_interpolations = {'higher', 'lower', 'midpoint'}
+    if interpolation not in allowed_interpolations:
+        raise ValueError(
+            'Argument `interpolation` must be in {}. Found {}.'.format(
+                allowed_interpolations, interpolation))
 
     # enforce float type for later computation on q
     q = tf.convert_to_tensor(q)
@@ -113,8 +121,8 @@ def nanpercentile(x,
                      x=tf.constant(np.inf, shape=(1, 1)),
                      y=x,
                      name='cast_NaN_to_inf')
-        nan_count = tf.reduce_sum(
-            tf.cast(x=mask, dtype=tf.int64),
+        nan_count = tf.math.count_nonzero(
+            input=mask,
             axis=1,
             keepdims=True  # to obtain a shape(-1,1) Tensor for broadcast
         )
@@ -131,6 +139,7 @@ def nanpercentile(x,
         # to vectorize the operation, in the end making the operation more
         # efficient, and the sort operation is performed only once anyway
         eff_q = tf.reshape(eff_q, shape=(-1,))
+
         percentiles = tfp.stats.percentile(
             x=x, q=eff_q, axis=1,
             interpolation=interpolation,
