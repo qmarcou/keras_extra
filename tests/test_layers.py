@@ -85,11 +85,11 @@ class TestECM(tf.test.TestCase):
         # Test different input types
         input_logits = tf.cast(input_logits, dtype=tf.float64)
         ecm_layer_max(input_logits)
+        # FIXME support for int in sparse ECM
         input_logits = tf.cast(input_logits, dtype=tf.int64)
         ecm_layer_max(input_logits)
         input_logits = tf.cast(input_logits, dtype=tf.int32)
         ecm_layer_max(input_logits)
-
 
     def test_build(self):
         # 4 class adjacency matrix, test coherent classification cases
@@ -102,11 +102,12 @@ class TestECM(tf.test.TestCase):
                                              [-1.0, 2.0, -1.0, 3.0]]),
                                    dtype=tf.float32)
         for is_sparse_mat in [False, True]:
-            ecm_layer_min = layers.ExtremumConstraintModule(activation="linear",
-                                                            extremum="min",
-                                                            adjacency_matrix=adj_mat
-                                                            .transpose(),
-                                                            sparse_adjacency=False)
+            ecm_layer_min = layers.ExtremumConstraintModule(
+                activation="linear",
+                extremum="min",
+                adjacency_matrix=adj_mat
+                    .transpose(),
+                sparse_adjacency=is_sparse_mat)
             # Test building with partially unknown input_shape
             ecm_layer_min.build(input_shape=tf.TensorShape([None, 4]))
             # Test building with partially unknown input_shape
@@ -222,6 +223,7 @@ class TestDenseHierL2Reg(tf.test.TestCase):
                           regularization_factor=-.1,
                           tree_like=True)
         adj_mat = np.array([[0, 1], [1, 0]])  # 1 is child of 0
+        # FIXME adj mat consistentcy test failing
         self.assertRaises(ValueError,
                           DenseHierL2Reg,
                           units=1,
