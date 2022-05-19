@@ -232,6 +232,12 @@ class MCLoss(keras.losses.Loss):
             layer. Defaults to 'linear'. 'linear' should be used if from_logits
              is True.
         """
+        if sparse_adjacency:
+            raise ValueError("MCLoss cannot work with sparse adjacency "
+                             "matrices yet, the TF and my custom "
+                             "implementation of sparse.reduce_max/min have "
+                             "no gradient registered, hence cannot be used "
+                             "in the loss.")
         super(MCLoss, self).__init__(
             name=name,
             reduction=reduction,
@@ -337,6 +343,12 @@ class TreeMinLoss(keras.losses.Loss):
             layer. Defaults to 'linear'. 'linear' should be used if from_logits
              is True.
         """
+        if sparse_adjacency:
+            raise ValueError("MCLoss cannot work with sparse adjacency "
+                             "matrices yet, the TF and my custom "
+                             "implementation of sparse.reduce_max/min have "
+                             "no gradient registered, hence cannot be used "
+                             "in the loss.")
         super(TreeMinLoss, self).__init__(
             name=name,
             reduction=reduction,
