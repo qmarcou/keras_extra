@@ -196,17 +196,18 @@ def reduce_max(sp_input: tf.SparseTensor,
         name=name
     )
 
+
 def reduce_min(sp_input: tf.SparseTensor,
                axis=None,
                keepdims=None,
                output_is_sparse=False,
                name=None) -> tf.SparseTensor | tf.Tensor:
-    sp_neg = tf.sparse.map_values(tf.math.negative, sp_input)
-    sp_min = tf.sparse.reduce_max(sp_neg, axis=axis, keepdims=keepdims,
-                                  output_is_sparse=True,
-                                  name=name)
-    res = tf.sparse.map_values(tf.math.negative, sp_min)
-    if output_is_sparse:
-        return res
-    else:
-        return tf.sparse.to_dense(res)
+
+    return _sparse_reduce_unstsegment_fn(
+        unsorted_segment_fn=tf.math.unsorted_segment_min,
+        sp_input=sp_input,
+        axis=axis,
+        keepdims=keepdims,
+        output_is_sparse=output_is_sparse,
+        name=name
+    )
