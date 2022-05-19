@@ -82,11 +82,12 @@ def sparse_dense_multiply(sparse_t: tf.SparseTensor,
 
 
 # @tf.function
-def reduce_max(sp_input: tf.SparseTensor,
-               axis: int | List[int] | tf.Tensor,
-               keepdims: bool = False,
-               output_is_sparse=False,
-               name: str = None) -> tf.SparseTensor:
+def _sparse_reduce_unstsegment_fn(unsorted_segment_fn,
+                                  sp_input: tf.SparseTensor,
+                                  axis: int | List[int] | tf.Tensor,
+                                  keepdims: bool = False,
+                                  output_is_sparse=False,
+                                  name: str = None) -> tf.SparseTensor:
     """
     math.(unsorted_)segment_sum.
 
@@ -143,11 +144,10 @@ def reduce_max(sp_input: tf.SparseTensor,
     # ordered sparseTensors but there were too many corner cases and checks
     # to be performed and would have been limited to reduce in contiguous
     # first dimensions
-    values = tf.math.unsorted_segment_max(data=sp_input.values,
-                                          segment_ids=idx,
-                                          num_segments=tf.reduce_max(
-                                              idx) + 1
-                                          )
+    values = unsorted_segment_fn(data=sp_input.values,
+                                 segment_ids=idx,
+                                 num_segments=tf.reduce_max(idx) + 1
+                                 )
     if tf.rank(indices) == 1:
         # Indices tensor must be rank 2 to instantiate a SparseTensor
         indices = tf.reshape(tensor=indices, shape=(-1, 1))
@@ -181,6 +181,20 @@ def reduce_max(sp_input: tf.SparseTensor,
     else:
         return tf.sparse.to_dense(tf.sparse.reorder(sp_out))
 
+
+def reduce_max(sp_input: tf.SparseTensor,
+               axis: int | List[int] | tf.Tensor,
+               keepdims: bool = False,
+               output_is_sparse=False,
+               name: str = None) -> tf.SparseTensor:
+    return _sparse_reduce_unstsegment_fn(
+        unsorted_segment_fn=tf.math.unsorted_segment_max,
+        sp_input=sp_input,
+        axis=axis,
+        keepdims=keepdims,
+        output_is_sparse=output_is_sparse,
+        name=name
+    )
 
 def reduce_min(sp_input: tf.SparseTensor,
                axis=None,
