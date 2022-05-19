@@ -110,7 +110,7 @@ class Test(tf.test.TestCase):
                 sparse_adjacency=is_sparse_mat)
             model = keras.Sequential([keras.layers.Input(shape=(4,)),
                                       ecm_layer_max])
-            model.compile()
+            model.compile(loss=keras.losses.binary_crossentropy)
             y = np.array([[4.0, 3.0, -1.0, 2.0],
                           [4.0, 3.0, -1.0, 3.0],
                           [3.0, 3.0, -1.0, 3.0]])

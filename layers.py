@@ -143,12 +143,10 @@ class ExtremumConstraintModule(Activation):
             if self.extremum == Extremum.Min:
                 self._extremum_func = keras_utils.sparse.reduce_min
             else:
-                # sparse.reduce_max is very slow, here a github issue with
-                # hints with how to optimize it:
-                # https://github.com/tensorflow/tensorflow/issues/32763
-                # this issue is about reduce_sum but could be adapted using
-                # tf.math.segment_max instead of tf.math.segment_sum
-                self._extremum_func = tf.sparse.reduce_max
+                # Use custom reduce_max since tf.sparse.reduce_max has no
+                # gradient implemented anyway and my implementation is ~3x
+                # faster
+                self._extremum_func = keras_utils.sparse.reduce_max
         else:
             self._select_func = self._select_dense
             if self.extremum == Extremum.Min:
@@ -187,8 +185,13 @@ class ExtremumConstraintModule(Activation):
             hier_act = self._select_func(act,
                                          adj_mat=self.adjacency_mat)
 
-        extr_act = self._extremum_func(hier_act, axis=-1, keepdims=False,
-                                       name="ecm_collapse")
+        extr_act = self._extremum_func(
+            hier_act,
+            # reduce last axis but neg indices not supported in
+            # keras_utils.sparse.reduce_max
+            axis=tf.rank(hier_act) - 1,
+            keepdims=False,
+            name="ecm_collapse")
 
         return extr_act
 
