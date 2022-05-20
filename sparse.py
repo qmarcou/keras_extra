@@ -179,7 +179,8 @@ def _sparse_reduce_unstsegment_fn(unsorted_segment_fn,
     if output_is_sparse:
         return sp_out
     else:
-        return tf.sparse.to_dense(tf.sparse.reorder(sp_out))
+        return tf.sparse.to_dense(tf.sparse.reorder(sp_out),
+                                  default_value=0)
 
 
 def reduce_max(sp_input: tf.SparseTensor,

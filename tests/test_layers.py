@@ -149,22 +149,24 @@ class TestECM(tf.test.TestCase):
             # Compile and fit in a learning model
             # only if not sparse since sparce.reduce_max has no gradient
             # implemented
+
+            ecm_layer_max = layers.ExtremumConstraintModule(
+                activation="linear",
+                extremum="max",
+                adjacency_matrix=adj_mat.transpose(),
+                sparse_adjacency=is_sparse_mat)
+            model = keras.Sequential([keras.layers.Input(shape=(4,)),
+                                      keras.layers.Dense(4,
+                                                         # kernel_initializer='ones',
+                                                         # bias_initializer='zeros'
+                                                         ),
+                                      ecm_layer_max])
+            model.compile(loss=keras.losses.binary_crossentropy)
+            y = np.array([[4.0, 3.0, -1.0, 2.0],
+                          [4.0, 3.0, -1.0, 3.0],
+                          [3.0, 3.0, -1.0, 3.0]])
+            model.evaluate(x=input_logits, y=y, verbose=False)
             if not is_sparse_mat:
-                ecm_layer_max = layers.ExtremumConstraintModule(
-                    activation="linear",
-                    extremum="max",
-                    adjacency_matrix=adj_mat.transpose(),
-                    sparse_adjacency=is_sparse_mat)
-                model = keras.Sequential([keras.layers.Input(shape=(4,)),
-                                          keras.layers.Dense(4,
-                                                             # kernel_initializer='ones',
-                                                             # bias_initializer='zeros'
-                                                             ),
-                                          ecm_layer_max])
-                model.compile(loss=keras.losses.binary_crossentropy)
-                y = np.array([[4.0, 3.0, -1.0, 2.0],
-                              [4.0, 3.0, -1.0, 3.0],
-                              [3.0, 3.0, -1.0, 3.0]])
                 model.fit(x=input_logits, y=y, verbose=False)
 
     def test_is_input_hier(self):

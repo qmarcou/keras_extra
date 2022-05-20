@@ -80,6 +80,9 @@ def nanpercentile(x,
             'Argument `interpolation` must be in {}. Found {}.'.format(
                 allowed_interpolations, interpolation))
 
+    # Convert x to tensor if needed
+    x = tf.convert_to_tensor(x)
+
     # enforce float type for later computation on q
     q = tf.convert_to_tensor(q)
     q = tf.cast(x=q, dtype=tf.float64)

@@ -192,13 +192,35 @@ class ExtremumConstraintModule(Activation):
             keepdims=False,
             name="ecm_collapse")
 
-        return extr_act
+        # Bug Fix: This reshape is introduced to fix a weird bug at graph
+        # creation time in evaluate and fit (keras). Code to reproduce the bug:
+        # ecm_layer_max = layers.ExtremumConstraintModule(
+        #     activation="linear",
+        #     extremum="max",
+        #     adjacency_matrix=adj_mat.transpose(),
+        #     sparse_adjacency=True)
+        #
+        # model = keras.Sequential([keras.layers.Input(shape=(4,)),
+        # ecm_layer_max])
+        # model.compile(loss=keras.losses.binary_crossentropy, metrics=[
+        # metrics.RankErrorsAtPercentile(q=50, no_true_label_value=1.0,
+        # interpolation='linear')], )
+        # model.fit(args)
+        # would raise: "ValueError: Number of mask dimensions must be specified,
+        # even if some dimensions are None.  E.g. shape=[None] is ok,
+        # but shape=None is not." from the boolean_mask function called in
+        # nanpercentile.
+        # I have the impression that upon converting a sparse Tensor to dense
+        # does not give the correct shape signature at graph construction, and
+        # by introducing this reshape somewhat fixes the issue, but it's hacky.
+        # Everything was running fine on eager execution
+        return tf.reshape(tensor=extr_act, shape=tf.shape(inputs))
 
     def build(self, input_shape: tf.TensorShape):
         # reshape with length 1 first dimension for broadcasting over
         # sample and possibly other dimensions
-        # input_shape does not contain the explicit batch size dimension only
-        # but None
+        # input_shape does not contain the explicit batch size dimension
+        # but only None
         new_shape = tf.concat([tf.ones(shape=tf.maximum(input_shape.rank - 1,
                                                         1),
                                        dtype=tf.int32),
