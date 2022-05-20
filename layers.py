@@ -295,12 +295,10 @@ class ExtremumConstraintModule(Activation):
 
     def _is_adj_mat_exp_correct_size(self, act):
         act_shape = tf.shape(act, out_type=tf.int64)
-        return tf.squeeze(tf.slice(tf.equal(act_shape, self._adj_mat_wc_shape),
-                                   begin=(0,),
-                                   size=(1,)))
+        return tf.squeeze(tf.equal(act_shape, self._adj_mat_wc_shape)[0])
 
     def _update_adj_mat_exp_first_dim(self, act):
-        sparse_template = keras_utils.sparse.expend_single_dim(
+        sparse_template = keras_utils.sparse.expand_single_dim(
             self.adjacency_mat,
             axis=0,
             times=tf.squeeze(tf.slice(tf.shape(act), begin=(0,), size=(1,))))

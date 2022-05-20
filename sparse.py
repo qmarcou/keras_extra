@@ -15,7 +15,7 @@ import tensorflow as tf
 # https://github.com/tensorflow/tensorflow/issues/33336
 
 @tf.function
-def expend_single_dim(sp_tensor: tf.sparse.SparseTensor,
+def expand_single_dim(sp_tensor: tf.sparse.SparseTensor,
                       times: int,
                       axis: int):
     out_tensor = sp_tensor
@@ -40,7 +40,7 @@ def expend_unit_dim(sp_tensor: tf.SparseTensor,
     indices = tf.squeeze(indices, axis=1)  # check that this will always work
     for i in tf.range(0, sp_rank, delta=1):
         if mask[i]:
-            sp_tensor = expend_single_dim(sp_tensor,
+            sp_tensor = expand_single_dim(sp_tensor,
                                           times=target_shape[i],
                                           axis=int(i))
     return sp_tensor

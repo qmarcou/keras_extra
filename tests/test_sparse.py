@@ -13,7 +13,7 @@ class Test(tf.test.TestCase):
                                tf.ones(2, dtype=tf.float32),
                                [2, 2])
         sp_t = tf.sparse.expand_dims(sp_t, axis=0)
-        sp_t_exp = sparse.expend_single_dim(sp_t,
+        sp_t_exp = sparse.expand_single_dim(sp_t,
                                             times=2,
                                             axis=0)
         exp_out = np.array([[[1., 0.], [0., 1.]],
@@ -23,7 +23,7 @@ class Test(tf.test.TestCase):
                               tf.sparse.to_dense(sp_t_exp))
         self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
 
-        sp_t_exp = sparse.expend_single_dim(sp_t,
+        sp_t_exp = sparse.expand_single_dim(sp_t,
                                             times=3,
                                             axis=0)
         exp_out = np.array([[[1., 0.], [0., 1.]],
@@ -34,7 +34,7 @@ class Test(tf.test.TestCase):
                               tf.sparse.to_dense(sp_t_exp))
         self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
         # Test on a non unit dim
-        sp_t_exp = sparse.expend_single_dim(sp_t_exp,
+        sp_t_exp = sparse.expand_single_dim(sp_t_exp,
                                             times=2,
                                             axis=0)
         exp_out = np.array([[[1., 0.], [0., 1.]],
@@ -49,7 +49,7 @@ class Test(tf.test.TestCase):
         self.assertAllEqual(exp_out, tf.sparse.to_dense(sp_t_exp))
 
         # Test passing tensor arguments
-        sp_t_exp = sparse.expend_single_dim(sp_t,
+        sp_t_exp = sparse.expand_single_dim(sp_t,
                                             times=tf.constant(3),
                                             axis=int(tf.constant(0)))
         exp_out = np.array([[[1., 0.], [0., 1.]],
