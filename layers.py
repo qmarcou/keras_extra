@@ -44,6 +44,8 @@ class ExtremumConstraintModule(Activation):
         the resulting parent activation. This is the strategy proposed in the
         MCM paper.
     sparse_adjacency: works only if there's no need to backpropagate gradients
+     and will only speedup code running on CPU only (some of the Ops used have
+     no GPU kernel)
     """
 
     def __init__(self, activation, extremum: str,
