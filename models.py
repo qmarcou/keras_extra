@@ -109,10 +109,21 @@ class SequentialPreOutputLoss(keras.Sequential):
                                               loss=loss, metrics=metrics,
                                               **kwargs)
 
+    def predict(self, *args, **kwargs):
+        preds = super(SequentialPreOutputLoss, self).predict(*args, **kwargs)
+        # Since we've added an output to compute the loss on, the layer on
+        # which the loss is computed will be returned in the outputs. We
+        # need to filter only the real output layer from the prediction to
+        # remain consistent with the Sequential API.
+        # _add_loss_output implementation guarantees that the desired output is
+        # output[0]
+        return preds[0]
+
     def get_config(self):
         config = {'loss_layer_name': self.loss_layer_name}
         base_config = super(SequentialPreOutputLoss, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
 
 
 def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
