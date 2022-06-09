@@ -125,7 +125,6 @@ class SequentialPreOutputLoss(keras.Sequential):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-
 def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                 detached_loss=False,
                                 batchnorm: bool = False,
@@ -270,7 +269,8 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                     units=self.output_size,
                     adjacency_matrix=adj_mat,
                     hier_side='out',
-                    regularization_factor=hp.Float(**hp_kwargs['outputHierL2Reg']),
+                    regularization_factor=hp.Float(
+                        **hp_kwargs['outputHierL2Reg']),
                     tree_like=True,
                     activation=act
                 )
@@ -284,7 +284,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                 # Create a hyperparameter for class weight cap
                 build_kwargs['loss_kwargs']['class_weights'] = (
                     build_kwargs['loss_kwargs']['class_weights']
-                        .clip(max=hp.Float(**hp_kwargs['class_weight_cap'])))
+                    .clip(max=hp.Float(**hp_kwargs['class_weight_cap'])))
 
         return sequential_multilabel_model(hp.Int("num_layers",
                                                   **hp_kwargs['num_layers']),
@@ -310,11 +310,14 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             verbose = False
         else:
             kwargs.pop('verbose')
-        early_stopping_callback = EarlyStopping(monitor=earlystop_monitor,
-                                                min_delta=0.01,
-                                                patience=10,
-                                                verbose=1,
-                                                restore_best_weights=True)
+        early_stopping_callback = EarlyStopping(
+            monitor=earlystop_monitor,
+            min_delta=0.0,
+            patience=3,
+            verbose=1,
+            # On resotring best weights: https://github.com/keras-team/keras/issues/11371
+            restore_best_weights=True)
+
         callbacks = kwargs.get("callbacks", None)
         if callbacks is None:
             callbacks = []
