@@ -302,7 +302,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
     @track_emissions(offline=True, country_iso_code="FRA")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
-            x_dev, y_dev, dev_metrics,
+            x_dev, y_dev,
             earlystop_monitor: str = 'val_loss',
             **kwargs):
         verbose = kwargs.get('verbose')
@@ -323,15 +323,23 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             callbacks = []
         callbacks.append(early_stopping_callback)
         kwargs["callbacks"] = callbacks
-        history = model.fit(x, y,
-                            shuffle=True,
-                            verbose=verbose,
-                            **kwargs)
+        history: dict = model.fit(x, y,
+                                  shuffle=True,
+                                  verbose=verbose,
+                                  **kwargs)
+
+        # evaluate on dev data and then add keys to the dict
+        # filter kwargs argument relevant to evaluate
+        dev_eval = model.evaluate(model.evaluate(
+            x=x_dev, y=y_dev,
+            return_dict=True,
+            # pass the fit kwargs, at this time evaluate has a **kwargs
+            # argument thus only kwargs relevant to evaluate will be used
+            **kwargs))
+        # add dev_ prefix to all dict entries and recreate the dict accordingly
+        dev_eval = {"dev_" + str(key): val for key, val in dev_eval.items()}
+
+        # now append this dev dict to the fit history
+        history.update(dev_eval)
+
         return history
-        dev_data = (x_dev, y_dev)
-        # dev_y_pred = model.predict(x_dev)
-        # dev_metrics_dict = {}
-        # for metric in dev_metrics:
-        #     dev_metrics_dict['dev_'+metric.__name__] = metric(y_dev,
-        #                                                       dev_y_pred)
-        # return dev_metrics_dict
