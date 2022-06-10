@@ -18,12 +18,7 @@ class BatchLossLRHistory(keras.callbacks.Callback):
 
 
 class DataEvaluator(keras.callbacks.Callback):
-    """
-    A callback to evaluate a model on specific data.
-
-    /!\ This Callback will function only for Models exposing epoch_logs and
-    training_logs class attributes.
-    """
+    """A callback to evaluate a model on specific data."""
 
     def __init__(self, x, y,
                  eval_prefix="dataEval_", **kwargs):
@@ -44,14 +39,14 @@ class DataEvaluator(keras.callbacks.Callback):
             **self.eval_kwargs
         )
         # Add the prefix to all keys of the dict
-        eval_output = {"dev_" + str(key): val for key, val in
+        eval_output = {self.eval_prefix + str(key): val for key, val in
                        eval_output.items()}
 
         # Check that none of the new keys overshadow the previous ones
         if len(set(eval_output.keys())
-                       .intersection(self.model.epoch_logs.keys())) > 0:
+                       .intersection(logs.keys())) > 0:
             raise RuntimeError("Names resulting from the DataEvaluator "
                                "overshadows names from the logs dict, "
                                "pick a different eval_prefix")
         # Update epoch_logs dict
-        self.model.epoch_logs.update(eval_output)
+        logs.update(eval_output)
