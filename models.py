@@ -302,7 +302,6 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
     @track_emissions(offline=True, country_iso_code="FRA")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
-            x_dev, y_dev,
             earlystop_monitor: str = 'val_loss',
             **kwargs):
         verbose = kwargs.get('verbose')
@@ -327,19 +326,5 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                   shuffle=True,
                                   verbose=verbose,
                                   **kwargs)
-
-        # evaluate on dev data and then add keys to the dict
-        # filter kwargs argument relevant to evaluate
-        dev_eval = model.evaluate(model.evaluate(
-            x=x_dev, y=y_dev,
-            return_dict=True,
-            # pass the fit kwargs, at this time evaluate has a **kwargs
-            # argument thus only kwargs relevant to evaluate will be used
-            **kwargs))
-        # add dev_ prefix to all dict entries and recreate the dict accordingly
-        dev_eval = {"dev_" + str(key): val for key, val in dev_eval.items()}
-
-        # now append this dev dict to the fit history
-        history.update(dev_eval)
 
         return history
