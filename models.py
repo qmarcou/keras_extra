@@ -245,8 +245,11 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         super(SequentialMultilabelHypermodel, self).__init__()
 
     def build(self, hp: kt.HyperParameters):
-        hp_kwargs = copy.deepcopy(self.hp_kwargs)
-        build_kwargs = copy.deepcopy(self.build_kwargs)
+        # BUGFIX: the use of deepcopy here introduced an issue with metric
+        # computation, the metrics behaved as if the rese_state method had no
+        # effect
+        hp_kwargs = copy.copy(self.hp_kwargs)
+        build_kwargs = copy.copy(self.build_kwargs)
         if hp_kwargs['use_dropout']['enable']:
             hp_kwargs['use_dropout'].pop('enable')
             dropout_rate = hp.Float(name="dropout", **hp_kwargs['dropout'])
