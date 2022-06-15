@@ -25,7 +25,8 @@ class DataEvaluator(keras.callbacks.Callback):
         self.x_data = x
         self.y_data = y
         self.eval_prefix = eval_prefix
-        self.eval_kwargs = kwargs
+        self.eval_kwargs = {'verbose': 0}  # set default verbosity to 0
+        self.eval_kwargs.update(kwargs)  # verbosity can be overriden by kwargs
         if kwargs.get("return_dict") is not None:
             raise AttributeError("return_dict cannot be specified when used "
                                  "in the DataEvaluator callback")
