@@ -251,7 +251,8 @@ class MCLoss(keras.losses.Loss):
             activation=activation,
             extremum='max',
             adjacency_matrix=adjacency_matrix,
-            sparse_adjacency=sparse_adjacency
+            sparse_adjacency=sparse_adjacency,
+            dtype='float32'  # Hotfix to enable use of mixed type policy
         )
 
     def call(self, y_true, y_pred):
@@ -260,10 +261,14 @@ class MCLoss(keras.losses.Loss):
             y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(
                 y_pred, y_true)
         # Cast y_true to the correct type for further computations
-        y_true = tf.cast(y_true, y_pred.dtype)
+        y_pred = tf.cast(y_pred, tf.float32)  # hotfix make mixed_precision
+        # usable
+        y_true = tf.cast(y_true, tf.float32)  # hotfix make mixed_precision
+        # usable
+        #y_true = tf.cast(y_true, y_pred.dtype)
 
         # Compute positive examples custom cross-ent contributions
-        fill = tf.fill(value=-np.inf,
+        fill = tf.fill(value=tf.constant(-np.inf, dtype=y_pred.dtype),
                        dims=tf.ones(shape=tf.rank(y_true),
                                     dtype=tf.int32))
         y_pred_true = tf.where(condition=tf.cast(y_true, dtype=tf.bool),
@@ -362,13 +367,15 @@ class TreeMinLoss(keras.losses.Loss):
             activation=activation,
             extremum='max',
             adjacency_matrix=adjacency_matrix,
-            sparse_adjacency=sparse_adjacency
+            sparse_adjacency=sparse_adjacency,
+            dtype='float32'  # Hotfix to enable use of mixed type policy
         )
         self._MinCMact = keras_utils.layers.ExtremumConstraintModule(
             activation=activation,
             extremum='min',
             adjacency_matrix=adjacency_matrix.transpose(),
-            sparse_adjacency=sparse_adjacency
+            sparse_adjacency=sparse_adjacency,
+            dtype='float32'  # Hotfix to enable use of mixed type policy
         )
 
     def call(self, y_true, y_pred):
@@ -377,7 +384,11 @@ class TreeMinLoss(keras.losses.Loss):
             y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(
                 y_pred, y_true)
         # Cast y_true to the correct type for further computations
-        y_true = tf.cast(y_true, y_pred.dtype)
+        y_pred = tf.cast(y_pred, tf.float32)  # hotfix make mixed_precision
+        # usable
+        y_true = tf.cast(y_true, tf.float32)  # hotfix make mixed_precision
+        # usable
+        #y_true = tf.cast(y_true, y_pred.dtype)
 
         # Compute positive examples custom cross-ent contributions
         pos_tm = self._MinCMact(y_pred)
