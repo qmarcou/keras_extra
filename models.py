@@ -145,7 +145,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
 
     Parameters
     ----------
-    n_layers
+    n_layers: number of hidden layers
     layer_size
     output_size
     detached_loss

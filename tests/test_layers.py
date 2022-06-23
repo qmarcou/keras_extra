@@ -357,6 +357,11 @@ class TestDenseHierL2Reg(tf.test.TestCase):
             hier_dense2.losses,
             hier_dense.losses)
 
+        self.assertAllCloseAccordingToType(
+            hier_dense2.losses,
+            hier_dense.losses)
+
+
     def test_inmodel(self):
         adj_mat = np.array([[0, 0, 0],
                             [1, 0, 0],
@@ -381,6 +386,21 @@ class TestDenseHierL2Reg(tf.test.TestCase):
                       [4.0, 3.0, -1.0],
                       [3.0, 3.0, -1.0]])
         hist: keras.callbacks.History = model.fit(x=x, y=y, verbose=False)
+
+        from tensorflow.keras import mixed_precision
+        mixed_precision.set_global_policy('mixed_float16')
+        hier_dense = DenseHierL2Reg(units=3,
+                                    adjacency_matrix=adj_mat,
+                                    hier_side="out",
+                                    regularization_factor=1.0,
+                                    tree_like=True
+                                    )
+        model = keras.Sequential([keras.layers.Input(shape=(4,)),
+                                  keras.layers.Dense(3),
+                                  hier_dense])
+        model.compile(loss=keras.losses.binary_crossentropy)
+        hist: keras.callbacks.History = model.fit(x=x, y=y, verbose=False)
+
 
 
 class Test(tf.test.TestCase):

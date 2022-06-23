@@ -74,7 +74,7 @@ class ExtremumConstraintModule(Activation):
             self.adjacency_mat = tf.SparseTensor(
                 indices=np.mat([adjacency_matrix.row,
                                 adjacency_matrix.col])
-                    .transpose(),
+                .transpose(),
                 values=tf.cast(adjacency_matrix.data, dtype=self.dtype),
                 dense_shape=adjacency_matrix.shape)
 
@@ -331,6 +331,7 @@ class ExtremumConstraintModule(Activation):
             # Only collapse the last dimension
             return tf.reduce_all(tf.equal(inputs, ecm_inputs), axis=-1)
 
+
 class DenseHierL2Reg(keras.layers.Dense):
     """
     A Dense layer with regularization loss based on hierarchical relationships.
@@ -385,14 +386,14 @@ class DenseHierL2Reg(keras.layers.Dense):
         if tree_like:
             adj_sum = tf.reduce_sum(adjacency_matrix, axis=0)
             first_ax_pred = tf.logical_not(tf.reduce_all(tf.logical_or(
-                    tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
-                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
+                tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
+                tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
 
             # check the second axis
             adj_sum = tf.reduce_sum(adjacency_matrix, axis=1)
             sec_ax_pred = tf.logical_not(tf.reduce_all(tf.logical_or(
-                    tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
-                    tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
+                tf.equal(adj_sum, tf.constant(1, dtype=adj_sum.dtype)),
+                tf.equal(adj_sum, tf.constant(0, dtype=adj_sum.dtype)))))
             if tf.logical_and(first_ax_pred, sec_ax_pred):
                 print(adj_sum)
                 raise ValueError("The adjacency matrix is not tree like.")
@@ -440,14 +441,17 @@ class DenseHierL2Reg(keras.layers.Dense):
             concat_weights = self.kernel
 
         # Add the L2 norms of the difference between parent/child vectors
-        self.add_loss(self.regularization_factor *
-                      tf.reduce_sum(tf.square(
-                          _dense_compute_hier_weight_diff_tensor(
-                              weights=concat_weights,
-                              adj_list=self.adj_list,
-                              axis=self.weights_vec_axis
-                          )
-                      )))
+
+        summed_l2 = tf.reduce_sum(tf.square(
+            _dense_compute_hier_weight_diff_tensor(
+                weights=concat_weights,
+                adj_list=self.adj_list,
+                axis=self.weights_vec_axis
+            )
+        ))
+        self.add_loss(
+            tf.cast(self.regularization_factor, dtype=summed_l2.dtype)
+            * summed_l2)
         return super(DenseHierL2Reg, self).call(inputs=inputs)
 
 
