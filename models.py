@@ -245,6 +245,10 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         super(SequentialMultilabelHypermodel, self).__init__()
 
     def build(self, hp: kt.HyperParameters):
+        # BUGFIX: I would get OOM during hyperband search even when testing
+        # individually max model sizes fit in the GPU
+        # https://github.com/keras-team/keras-tuner/issues/395
+        # https://github.com/keras-team/keras/issues/2102
         keras.backend.clear_session()
         hp_kwargs = copy.deepcopy(self.hp_kwargs)  # deep copy needed
         # BUGFIX: the use of deepcopy below introduced an issue with metric
