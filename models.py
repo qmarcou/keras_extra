@@ -245,6 +245,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         super(SequentialMultilabelHypermodel, self).__init__()
 
     def build(self, hp: kt.HyperParameters):
+        keras.backend.clear_session()
         hp_kwargs = copy.deepcopy(self.hp_kwargs)  # deep copy needed
         # BUGFIX: the use of deepcopy below introduced an issue with metric
         # computation, the metrics behaved as if the reset_state method had no
