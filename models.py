@@ -307,7 +307,8 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            output_layer=output_layer,
                                            **build_kwargs)
 
-    @track_emissions(offline=True, country_iso_code="FRA")
+    @track_emissions(offline=True, country_iso_code="FRA",
+                     log_level="warning")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
             earlystop_monitor: str = 'val_loss',
