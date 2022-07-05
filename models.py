@@ -5,6 +5,7 @@ from keras.losses import BinaryCrossentropy
 import keras_utils.metrics
 import copy
 from codecarbon import track_emissions
+import gc
 
 
 # Some useful ressources:
@@ -250,6 +251,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         # https://github.com/keras-team/keras-tuner/issues/395
         # https://github.com/keras-team/keras/issues/2102
         keras.backend.clear_session()
+        gc.collect()
         hp_kwargs = copy.deepcopy(self.hp_kwargs)  # deep copy needed
         # BUGFIX: the use of deepcopy below introduced an issue with metric
         # computation, the metrics behaved as if the reset_state method had no
@@ -308,7 +310,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                            **build_kwargs)
 
     @track_emissions(offline=True, country_iso_code="FRA",
-                     log_level="warning")
+                     log_level="error")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
             earlystop_monitor: str = 'val_loss',
