@@ -129,8 +129,9 @@ class SequentialPreOutputLoss(keras.Sequential):
 def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                 detached_loss=False,
                                 batchnorm: bool = False,
-                                dropout: float = 0, output_bias=None,
+                                dropout: float = 0,
                                 activation='relu', output_activation='sigmoid',
+                                output_kernel_regularizer=None,
                                 output_layer: keras.layers.Layer = None,
                                 loss=BinaryCrossentropy,
                                 loss_kwargs={'from_logits': False},
@@ -227,7 +228,8 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
             # Add a dense layer with sigmoid activation
             layers.append(
                 keras.layers.Dense(units=output_size, name="outputL_",
-                                   activation='sigmoid'))
+                                   activation='sigmoid',
+                                   kernel_regularizer=output_kernel_regularizer))
         model = keras.Sequential(layers)
 
     model.build()
@@ -285,6 +287,13 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                     activation=act
                 )
 
+        output_kernel_regularizer = None
+        if hp_kwargs.get('output_kernel_regularizer'):
+            if hp_kwargs['output_kernel_regularizer']['enable']:
+                hp_kwargs['output_kernel_regularizer'].pop('enable')
+                output_kernel_regularizer = keras.regularizers.L2(
+                    hp.Float(**hp_kwargs['output_kernel_regularizer']))
+
         loss_class = self.build_kwargs.get('loss')
         # Custom hyperparameters for peculiar metrics
         if loss_class is not None:
@@ -319,6 +328,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                                                                 **hp_kwargs[
                                                                     'activation']),
                                            output_layer=output_layer,
+                                           output_kernel_regularizer=output_kernel_regularizer,
                                            **build_kwargs)
 
     @track_emissions(offline=True, country_iso_code="FRA",
