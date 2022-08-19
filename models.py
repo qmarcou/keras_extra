@@ -289,7 +289,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
         # Custom hyperparameters for peculiar metrics
         if loss_class is not None and loss_class.__name__ == \
                 'WeightedBinaryCrossentropy':
-            if hp_kwargs['class_weight_cap']['enable']:
+            if hp_kwargs.get('class_weight_cap', {}).get('enable',False):
                 hp_kwargs['class_weight_cap'].pop('enable')
                 # Create a hyperparameter for class weight cap
                 build_kwargs['loss_kwargs']['class_weights'] = (
