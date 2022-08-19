@@ -1,7 +1,7 @@
 from tensorflow import keras
 import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
-from keras.losses import BinaryCrossentropy
+from keras.losses import BinaryCrossentropy, BinaryFocalCrossentropy
 import keras_utils.metrics
 import copy
 from codecarbon import track_emissions
@@ -287,14 +287,26 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
 
         loss_class = self.build_kwargs.get('loss')
         # Custom hyperparameters for peculiar metrics
-        if loss_class is not None and loss_class.__name__ == \
-                'WeightedBinaryCrossentropy':
-            if hp_kwargs.get('class_weight_cap', {}).get('enable',False):
-                hp_kwargs['class_weight_cap'].pop('enable')
-                # Create a hyperparameter for class weight cap
-                build_kwargs['loss_kwargs']['class_weights'] = (
-                    build_kwargs['loss_kwargs']['class_weights']
-                    .clip(max=hp.Float(**hp_kwargs['class_weight_cap'])))
+        if loss_class is not None:
+            if loss_class.__name__ == 'WeightedBinaryCrossentropy':
+                if hp_kwargs.get('class_weight_cap', {}).get('enable', False):
+                    hp_kwargs['class_weight_cap'].pop('enable')
+                    # Create a hyperparameter for class weight cap
+                    build_kwargs['loss_kwargs']['class_weights'] = (
+                        build_kwargs['loss_kwargs']['class_weights']
+                        .clip(max=hp.Float(**hp_kwargs['class_weight_cap'])))
+
+            elif loss_class.__name__ == "BinaryFocalCrossentropy":
+                if hp_kwargs.get('focal_gamma', {}).get('enable', False):
+                    hp_kwargs['focal_gamma'].pop('enable')
+
+                    if build_kwargs.get('loss_kwargs', None) is None:
+                        build_kwargs['loss_kwargs'] = {}
+
+                    build_kwargs['loss_kwargs'].update(
+                        {'gamma': hp.Float(**hp_kwargs['focal_gamma'])})
+
+
 
         return sequential_multilabel_model(hp.Int("num_layers",
                                                   **hp_kwargs['num_layers']),
