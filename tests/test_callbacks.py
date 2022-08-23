@@ -32,8 +32,7 @@ class TestCompoundMetric(TestCase):
         model = keras.Sequential(keras.layers.Dense(1, activation="sigmoid"))
         model.compile(loss="binary_crossentropy",
                       metrics=("accuracy", "AUC"))
-        x_test = [[3], [2], [1], [0]]
-        y_test = [0, 0, 1, 1]
+
         compound_met = callbacks.CompoundMetric({"accuracy": 1,
                                                  "auc": 2})
 
@@ -44,7 +43,7 @@ class TestCompoundMetric(TestCase):
                                                   verbose=False)
         self.assertAlmostEqual(
             (1*hist.history['accuracy'][0] + 2*hist.history['auc'][0])/3.0,
-            hist.history['1accuracy_2auc'][0]
+            hist.history['accuracy1_auc2'][0]
         )
 
         compound_met = callbacks.CompoundMetric({"accuracy": 1,
@@ -60,3 +59,39 @@ class TestCompoundMetric(TestCase):
             hist.history['blob'][0]
         )
 
+        # provide an empty prefix
+        compound_met = callbacks.CompoundMetric({"accuracy": 1,
+                                                 "auc": 2},
+                                                met_prefixes='',
+                                                compound_metric_name="blob")
+        hist: keras.callbacks.History = model.fit(x=x_train,
+                                                  y=y_train,
+                                                  epochs=1,
+                                                  callbacks=[compound_met],
+                                                  verbose=False)
+        self.assertAlmostEqual(
+            (1*hist.history['accuracy'][0] + 2*hist.history['auc'][0])/3.0,
+            hist.history['blob'][0]
+        )
+
+        # provide a list of prefixes
+        compound_met = callbacks.CompoundMetric({"accuracy": 1,
+                                                 "auc": 2},
+                                                met_prefixes=['', 'val_'],
+                                                compound_metric_name="blob")
+        x_test = [[3], [2], [1], [0]]
+        y_test = [0, 0, 1, 1]
+        hist: keras.callbacks.History = model.fit(x=x_train,
+                                                  y=y_train,
+                                                  validation_data=(x_test,y_test),
+                                                  epochs=1,
+                                                  callbacks=[compound_met],
+                                                  verbose=False)
+        self.assertAlmostEqual(
+            (1*hist.history['accuracy'][0] + 2*hist.history['auc'][0])/3.0,
+            hist.history['blob'][0]
+        )
+        self.assertAlmostEqual(
+            (1*hist.history['val_accuracy'][0] + 2*hist.history['val_auc'][0])/3.0,
+            hist.history['val_blob'][0]
+        )

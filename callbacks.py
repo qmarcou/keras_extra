@@ -1,6 +1,7 @@
 """A collection of custom Keras callbacks."""
 from tensorflow import keras
 import tensorflow as tf
+import dtypecheck
 
 
 class BatchLossLRHistory(keras.callbacks.Callback):
@@ -55,31 +56,43 @@ class DataEvaluator(keras.callbacks.Callback):
 
 class CompoundMetric(keras.callbacks.Callback):
     """A callback enabling to compute a metric by averaging existing ones."""
-    def __init__(self, metrics_dict: dict, compound_metric_name: str = None):
+    def __init__(self, metrics_dict: dict,
+                 met_prefixes: str | list[str] = None,
+                 compound_metric_name: str = None):
         # TODO check that its a {str:float} dict
         build_metric_name = False
         self._metrics_dict = metrics_dict
         self.comp_met_name = compound_metric_name
 
+        if met_prefixes is None:
+            self.met_prefixes = [""]
+        else:
+            if not dtypecheck.is_str_or_strlist(met_prefixes):
+                raise TypeError("met_prefixes must be a str or list of str")
+            else:
+                if isinstance(met_prefixes, str):
+                    met_prefixes = [met_prefixes]
+                self.met_prefixes = met_prefixes
         if compound_metric_name is None:
             self.comp_met_name = ''
             build_metric_name = True
 
         for key in metrics_dict:
             if build_metric_name:
-                self.comp_met_name += str(metrics_dict[key]) + key + "_"
+                self.comp_met_name += key + str(metrics_dict[key]) + "_"
 
         if build_metric_name:
             # remove the trailing underscore
             self.comp_met_name = self.comp_met_name[0:-1]
 
     def on_epoch_end(self, epoch, logs=None):
-        aggregator = 0.0
-        normalizer = 0.0
-        for key in self._metrics_dict:
-            aggregator += self._metrics_dict[key] * logs[key]
-            normalizer += self._metrics_dict[key]
-        aggregator /= normalizer
+        for prefix in self.met_prefixes:
+            aggregator = 0.0
+            normalizer = 0.0
+            for key in self._metrics_dict:
+                aggregator += self._metrics_dict[key] * logs[prefix + key]
+                normalizer += self._metrics_dict[key]
+            aggregator /= normalizer
 
-        # Update epoch_logs dict
-        logs.update({self.comp_met_name: aggregator})
+            # Update epoch_logs dict
+            logs.update({prefix + self.comp_met_name: aggregator})
