@@ -23,3 +23,40 @@ class TestDataEvaluator(TestCase):
                               y=y_test, return_dict=True)
         self.assertAlmostEqual(hist.history['dataEvalTester_loss'][-1],
                                eval['loss'])
+
+
+class TestCompoundMetric(TestCase):
+    def test_inmodel(self):
+        x_train = [[0], [1], [2], [3]]
+        y_train = [0, 0, 1, 1]
+        model = keras.Sequential(keras.layers.Dense(1, activation="sigmoid"))
+        model.compile(loss="binary_crossentropy",
+                      metrics=("accuracy", "AUC"))
+        x_test = [[3], [2], [1], [0]]
+        y_test = [0, 0, 1, 1]
+        compound_met = callbacks.CompoundMetric({"accuracy": 1,
+                                                 "auc": 2})
+
+        hist: keras.callbacks.History = model.fit(x=x_train,
+                                                  y=y_train,
+                                                  epochs=1,
+                                                  callbacks=[compound_met],
+                                                  verbose=False)
+        self.assertAlmostEqual(
+            (1*hist.history['accuracy'][0] + 2*hist.history['auc'][0])/3.0,
+            hist.history['1accuracy_2auc'][0]
+        )
+
+        compound_met = callbacks.CompoundMetric({"accuracy": 1,
+                                                 "auc": 2},
+                                                compound_metric_name="blob")
+        hist: keras.callbacks.History = model.fit(x=x_train,
+                                                  y=y_train,
+                                                  epochs=1,
+                                                  callbacks=[compound_met],
+                                                  verbose=False)
+        self.assertAlmostEqual(
+            (1*hist.history['accuracy'][0] + 2*hist.history['auc'][0])/3.0,
+            hist.history['blob'][0]
+        )
+
