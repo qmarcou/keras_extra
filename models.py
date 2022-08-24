@@ -1,3 +1,4 @@
+import numpy as np
 from tensorflow import keras
 import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
@@ -300,10 +301,22 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             if loss_class.__name__ == 'WeightedBinaryCrossentropy':
                 if hp_kwargs.get('class_weight_cap', {}).get('enable', False):
                     hp_kwargs['class_weight_cap'].pop('enable')
+                    normalize = (hp_kwargs['class_weight_cap']
+                                 .pop('normalize', False))
+                    label_freqs = np.asarray(hp_kwargs['class_weight_cap'].pop(
+                            'label_frequencies', None))
                     # Create a hyperparameter for class weight cap
                     build_kwargs['loss_kwargs']['class_weights'] = (
                         build_kwargs['loss_kwargs']['class_weights']
                         .clip(max=hp.Float(**hp_kwargs['class_weight_cap'])))
+                    if normalize:
+                        class_weights = build_kwargs['loss_kwargs'][
+                            'class_weights']
+                        z = 1.0 + label_freqs.reshape((-1, 1)) * (class_weights - 1.0)
+                        class_weights /= z
+                        build_kwargs['loss_kwargs'][
+                            'class_weights'] = class_weights
+
 
             elif loss_class.__name__ == "BinaryFocalCrossentropy":
                 if hp_kwargs.get('focal_gamma', {}).get('enable', False):
@@ -314,8 +327,6 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
 
                     build_kwargs['loss_kwargs'].update(
                         {'gamma': hp.Float(**hp_kwargs['focal_gamma'])})
-
-
 
         return sequential_multilabel_model(hp.Int("num_layers",
                                                   **hp_kwargs['num_layers']),
