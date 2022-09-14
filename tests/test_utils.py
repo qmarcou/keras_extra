@@ -28,6 +28,15 @@ class Test_axes_funcs(tf.test.TestCase):
         self.assertAllEqual(exp_x,
                             utils.move_axis_to_last_dim(x, 0))
 
+    def test_shape_without_axis(self):
+        x = tf.ones(shape=(2, 3, 4))
+        self.assertAllEqual(tf.constant([3, 4]),
+                            utils.shape_without_axis(x, 0))
+        self.assertAllEqual(tf.constant([4]),
+                            utils.shape_without_axis(x, [0, 1]))
+        self.assertAllEqual(tf.constant([3]),
+                            utils.shape_without_axis(x, [0, -1]))
+
 
 class Test(tf.test.TestCase):
     def test_compute_rank(self):

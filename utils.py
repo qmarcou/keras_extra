@@ -5,11 +5,11 @@ from enum import Enum
 
 def not_in(x, list):
     """Check if values in x are contained in list"""
-    pass
+    raise NotImplementedError
 
 
 def is_in(x, list):
-    pass
+    raise NotImplementedError
 
 
 class _SideDim(Enum):
@@ -99,10 +99,22 @@ def move_axis_to_first_dim(x, axis) -> tf.Tensor:
 
 
 def swapaxes(tensor, axis_1, axis_2):
-    pass
+    raise NotImplementedError
 
 
 def shape_without_axis(x, axis):
+    """
+    Returns the shape of the tensor if the axes are removed.
+
+    Parameters
+    ----------
+    x: input tensor
+    axis: a scalar, list of scalars or 1D Tensor
+
+    Returns
+    -------
+    A 1D tensor
+    """
     axes_range = tf.range(tf.rank(x), dtype=tf.int32)
 
     # Prepare axis to 1D tensor
