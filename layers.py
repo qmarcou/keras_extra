@@ -1,7 +1,9 @@
 """A collection of custom keras layers."""
 from __future__ import annotations
 import numpy as np
+from networkx import adjacency_matrix
 from numpy import dtype, clip
+from scipy.constants import value
 from scipy.sparse import coo_matrix, isspmatrix_coo, isspmatrix
 import tensorflow as tf
 from tensorflow import keras
@@ -11,6 +13,7 @@ from tensorflow.keras import backend as K
 from typing import Optional
 from enum import Enum
 import keras_utils.sparse
+import keras_utils.utils
 
 
 # Useful references:
@@ -453,6 +456,93 @@ class DenseHierL2Reg(keras.layers.Dense):
             tf.cast(self.regularization_factor, dtype=summed_l2.dtype)
             * summed_l2)
         return super(DenseHierL2Reg, self).call(inputs=inputs)
+
+
+def _ragged_coo_graph_reduce(values: tf.Tensor,
+                             adjacency_list: tf.Tensor,
+                             axis: int,
+                             reduce_fn: callable,
+                             sorted_adj_list=False,
+                             ) -> tf.Tensor:
+    """
+
+    Parameters
+    ----------
+    values: a tf.Tensor containing the values.
+    adjacency_list: adjacency list to be used to concatenate values in axis.
+    The adjacency matrix is expected to be of shape [M,2], where M is the
+    number of edges. The second is expected to denote [origin, destination].
+    The destination of the edge denotes the index to be expanded while the
+    origin the value to be expanded with.
+    axis: axis on which graph expansion and reduction must be performed
+    reduce_fn: reduction function, must support Ragged Tensors and comply with
+    tf reduction ops arguments (input_tensor, axis, keepdims and name)
+    sorted_adj_list: if False check and sort the adjacency list according to
+    the destination index. Setting this parameter to True may avoid redundant
+    operations. If set to True and the adjacency_list is not correctly sorted,
+    will result in an error "Arguments to from_value_rowids do not form a
+    valid RowPartition".
+
+    Returns
+    -------
+
+    """
+    # Preprocess inputs
+    values = tf.convert_to_tensor(values)
+    adjacency_list = tf.convert_to_tensor(adjacency_list, dtype=tf.int32)
+    if tf.rank(adjacency_list) != 2:
+        raise ValueError("The adjacency list must be a 2D tensor.")
+
+    # Sort the adjacency list according to the destination index
+    # This step is required for building a ragged Tensor from row_ids (row_ids
+    # must be sorted in increasing order)
+    if not sorted_adj_list:
+        sorted_indices = tf.argsort(values=adjacency_list[:, 1],
+                                    direction='ASCENDING',
+                                    name='argsort_adj_list')
+        adjacency_list = tf.gather(params=adjacency_list,
+                                   indices=sorted_indices,
+                                   axis=0,
+                                   name='reorder_adj_list'
+                                   )
+
+    # Expand the values (makes a copy of the value denoted by the origin
+    # index for every edge stemming from it)
+    # I call this expansion assuming the adjacency list contains entries of
+    # an adjacency matrix with a full diagonal. This is however not required,
+    # and if the number of edges in the graph is less than the initial number
+    # of values this operation will actually reduce the amounbt of values.
+    # The conversion to a Ragged Tensor afterwards will restore the initial
+    # dimension using empty Tensors. The result of the reduction operation will
+    # depend on how the provided reducing function handles such empty tensors.
+    expanded_values = tf.gather(params=values,
+                                indices=adjacency_list[:, 0],
+                                axis=axis,
+                                name="get_neighbors_values")
+    # Group according to the destination index using a Ragged Tensor
+    # First swap axes to enable the use of ragged tensor construction
+    # on first dimension
+    expanded_values = keras_utils.utils.move_axis_to_first_dim(
+        x=expanded_values,
+        axis=axis)
+
+    ragged_values = tf.RaggedTensor.from_value_rowids(
+        values=expanded_values,
+        value_rowids=adjacency_list[:, 1],
+        nrows=tf.shape(values)[axis]
+    )
+    # Perform reduction
+    # the 0 axis is the axis has been created above and has the size
+    # of the original axis
+    # the 1 axis is the ragged dimension of interest, to be reduced
+    reduced_vals = reduce_fn(ragged_values, axis=1,
+                             keepdims=False, name="ragged_reduction")
+
+    # Now move the axis of interest back to its original place (0->axis)
+    reduced_vals = keras_utils.utils.move_axis_to(input_tensor=reduced_vals,
+                                                  axis_index=0,
+                                                  new_index=axis)
+    return reduced_vals
 
 
 @tf.function

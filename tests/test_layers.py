@@ -106,7 +106,7 @@ class TestECM(tf.test.TestCase):
                 activation="linear",
                 extremum="min",
                 adjacency_matrix=adj_mat
-                    .transpose(),
+                .transpose(),
                 sparse_adjacency=is_sparse_mat)
             # Test building with partially unknown input_shape
             ecm_layer_min.build(input_shape=tf.TensorShape([None, 4]))
@@ -361,7 +361,6 @@ class TestDenseHierL2Reg(tf.test.TestCase):
             hier_dense2.losses,
             hier_dense.losses)
 
-
     def test_inmodel(self):
         adj_mat = np.array([[0, 0, 0],
                             [1, 0, 0],
@@ -402,7 +401,6 @@ class TestDenseHierL2Reg(tf.test.TestCase):
         hist: keras.callbacks.History = model.fit(x=x, y=y, verbose=False)
 
 
-
 class Test(tf.test.TestCase):
     def test_dense_compute_hier_weight_diff_vector(self):
         weights = tf.constant([[1.0, 2.0, 4.0],
@@ -435,3 +433,50 @@ class Test(tf.test.TestCase):
             _dense_compute_hier_weight_diff_tensor(weights=weights,
                                                    adj_list=adj_list,
                                                    axis=-1))
+
+    def test__ragged_coo_graph_reduce(self):
+        # Check 2D input (case of most interest)
+        x = [[.2, .3, .5],
+             [.5, .2, .3]]
+        adj_list = [[0, 0],
+                    [1, 1],
+                    [2, 2],
+                    [0, 1]]
+        self.assertAllCloseAccordingToType(
+            [[0.2, 0.3, 0.5],
+             [0.5, 0.5, 0.3]],
+            layers._ragged_coo_graph_reduce(values=x,
+                                            adjacency_list=adj_list,
+                                            axis=1,
+                                            reduce_fn=tf.reduce_max,
+                                            sorted_adj_list=False)
+        )
+        self.assertAllCloseAccordingToType(
+            [[0.2, 0.2, 0.5],
+             [0.5, 0.2, 0.3]],
+            layers._ragged_coo_graph_reduce(values=x,
+                                            adjacency_list=adj_list,
+                                            axis=1,
+                                            reduce_fn=tf.reduce_min,
+                                            sorted_adj_list=False)
+        )
+        self.assertAllCloseAccordingToType(
+            [[0.2, 0.5, 0.5],
+             [0.5, 0.7, 0.3]],
+            layers._ragged_coo_graph_reduce(values=x,
+                                            adjacency_list=adj_list,
+                                            axis=1,
+                                            reduce_fn=tf.reduce_sum,
+                                            sorted_adj_list=False)
+        )
+        # Check 1D
+        self.assertAllCloseAccordingToType(
+            [0.2, 0.5, 0.5],
+            layers._ragged_coo_graph_reduce(values=x[0],
+                                            adjacency_list=adj_list,
+                                            axis=0,
+                                            reduce_fn=tf.reduce_sum,
+                                            sorted_adj_list=False)
+        )
+        # Check 3D
+
