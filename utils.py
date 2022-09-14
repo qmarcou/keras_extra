@@ -171,24 +171,24 @@ def _to_positive_indices(tensor_shape, indices):
     return pos_indices
 
 
-def swapaxes(tensor, axis_1, axis_2):
+def swap_axes(input_tensor, axis_1, axis_2):
     raise NotImplementedError
 
 
-def shape_without_axis(x, axis):
+def shape_without_axis(input_tensor: tf.Tensor, axis) -> tf.Tensor:
     """
     Returns the shape of the tensor if the axes are removed.
 
     Parameters
     ----------
-    x: input tensor
+    input_tensor: input tensor
     axis: a scalar, list of scalars or 1D Tensor
 
     Returns
     -------
     A 1D tensor
     """
-    axes_range = tf.range(tf.rank(x), dtype=tf.int32)
+    axes_range = tf.range(tf.rank(input_tensor), dtype=tf.int32)
 
     # Prepare axis to 1D tensor
     # Will throw an error if axis is not a scalar or 1D tensor
@@ -201,7 +201,8 @@ def shape_without_axis(x, axis):
     # Get actual axis indices if any axis is <0
     neg_axis = tf.less(axis, 0)
     if tf.reduce_any(neg_axis):
-        axis = tf.where(condition=neg_axis, x=tf.rank(x) + axis, y=axis)
+        axis = tf.where(condition=neg_axis, x=tf.rank(input_tensor) + axis,
+                        y=axis)
 
     # Create new axis index map and transpose the tensor accordingly
     mask = tf.reduce_all(tf.not_equal(
@@ -210,7 +211,7 @@ def shape_without_axis(x, axis):
         axis=1)  # boils down to not_in in 1D
 
     masked_shape = tf.boolean_mask(
-        tensor=tf.shape(x),
+        tensor=tf.shape(input_tensor),
         mask=mask)
     return masked_shape
 
@@ -226,6 +227,14 @@ def compute_ranks(values: tf.Tensor,
                        direction='ASCENDING',
                        stable=False) + 1
     return ranks
+
+def pop_element_from_1d_tensor(input_tensor, index):
+    raise NotImplementedError
+
+
+def insert_element_to_1d_tensor(input_tensor, index):
+    raise NotImplementedError
+
 
 
 # Adapted from tensorflow-ranking v0.6.0, utils.py
