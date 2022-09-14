@@ -28,6 +28,29 @@ class Test_axes_funcs(tf.test.TestCase):
         self.assertAllEqual(exp_x,
                             utils.move_axis_to_last_dim(x, 0))
 
+    def test_move_axis_to(self):
+        # Check shape changes as expected
+        x = tf.ones(shape=(2, 3, 4))
+        self.assertShapeEqual(tf.ones(shape=(3, 4, 2)),
+                              utils.move_axis_to(x, 0, 2))
+        self.assertShapeEqual(tf.ones(shape=(3, 4, 2)),
+                              utils.move_axis_to(x, 0, -1))
+        self.assertShapeEqual(tf.ones(shape=(3, 2, 4)),
+                              utils.move_axis_to(x, 0, 1))
+        self.assertShapeEqual(x,
+                              utils.move_axis_to(x, 0, 0))
+        self.assertShapeEqual(tf.ones(shape=(3, 2, 4)),
+                              utils.move_axis_to(x, 1, 0))
+        self.assertShapeEqual(tf.ones(shape=(4, 2, 3)),
+                              utils.move_axis_to(x, -1, 0))
+        # Check that the values are moved as expected
+        x = tf.concat([tf.ones(shape=(1, 3, 4)),
+                       tf.ones(shape=(1, 3, 4)) * 2], axis=0)
+        exp_x = tf.concat([tf.ones(shape=(3, 4, 1)),
+                           tf.ones(shape=(3, 4, 1)) * 2], axis=2)
+        self.assertAllEqual(exp_x,
+                            utils.move_axis_to(x, 0, -1))
+
     def test_shape_without_axis(self):
         x = tf.ones(shape=(2, 3, 4))
         self.assertAllEqual(tf.constant([3, 4]),

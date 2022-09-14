@@ -98,6 +98,79 @@ def move_axis_to_first_dim(x, axis) -> tf.Tensor:
     return _move_axis_to_side_dim(x=x, axis=axis, side=_SideDim.First)
 
 
+def move_axis_to(input_tensor, axis_index, new_index):
+    """
+    Move a tensor axis to the specified index.
+
+    Only works with 1 axis at a time.
+
+    Parameters
+    ----------
+    input_tensor
+    axis_index: index of the axis to me moved
+    new_index: destination index
+
+    Returns
+    -------
+    tf.Tensor with modified axes
+    """
+    # TODO make it work with more than 1 axis
+    axes_range = tf.range(tf.rank(input_tensor), dtype=tf.int32)
+
+    # Prepare axis to 1D tensor
+    # Will throw an error if axis is not a scalar or 1D tensor
+    axis = tf.convert_to_tensor(axis_index, dtype=tf.int32)
+    axis = tf.squeeze(axis)
+
+    dest_index = tf.convert_to_tensor(new_index, dtype=tf.int32)
+    dest_index = tf.squeeze(new_index)
+
+    if tf.rank(axis) > 0 or tf.rank(dest_index) > 0:
+        raise NotImplementedError("Moving more than one axis at a time is "
+                                  "not supported.")
+
+    # Get actual axis indices if any axis is <0
+    neg_axis = tf.less(axis, 0)
+    if tf.reduce_any(neg_axis):
+        axis = tf.where(condition=neg_axis,
+                        x=tf.rank(input_tensor) + axis,
+                        y=axis)
+
+    neg_axis = tf.less(dest_index, 0)
+    if tf.reduce_any(neg_axis):
+        dest_index = tf.where(condition=neg_axis,
+                              x=tf.rank(input_tensor) + dest_index,
+                              y=dest_index)
+
+    # Create new axis index map and transpose the tensor accordingly
+    mask = tf.reduce_all(tf.not_equal(
+        tf.reshape(axes_range, shape=(-1, 1)),
+        tf.reshape(axis, shape=(1, -1))),
+        axis=1)  # boils down to not_in in 1D
+
+    masked_range = tf.boolean_mask(
+        tensor=axes_range,
+        mask=mask)
+
+    axis_map = tf.concat([masked_range[0:dest_index],
+                          tf.reshape(axis, shape=(1,)),
+                          masked_range[dest_index:]],
+                         axis=0)
+
+    return tf.transpose(a=input_tensor, perm=axis_map)
+
+def _to_positive_indices(tensor_shape, indices):
+    # FIXME only works in 1D
+    # tf.reshape(tensor_shape)
+    # Get actual axis indices if any axis is <0
+    neg_axis = tf.less(indices, 0)
+    if tf.reduce_any(neg_axis):
+        pos_indices = tf.where(condition=neg_axis,
+                               x=tensor_shape + indices,
+                               y=indices)
+    return pos_indices
+
+
 def swapaxes(tensor, axis_1, axis_2):
     raise NotImplementedError
 
