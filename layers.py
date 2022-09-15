@@ -128,6 +128,9 @@ class ExtremumConstraintModule(Activation):
         # Compute raw activations
         act = self.activation(inputs)
         # Perform pooling/reduction over the graph
+        # Using this ragged implementation instead of tensor products results
+        # in about 25x speedup on CPU, a massive speedup on GPU, and large
+        # reduction in memory consumption
         ecm_act = _ragged_coo_graph_reduce(values=act,
                                         adjacency_list=self.adjacency_list,
                                         axis=-1,
