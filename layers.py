@@ -47,15 +47,11 @@ class ExtremumConstraintModule(Activation):
         approach in which information about children nodes is used to compute
         the resulting parent activation. This is the strategy proposed in the
         MCM paper.
-    sparse_adjacency: works only if there's no need to backpropagate gradients
-     and will only speedup code running on CPU only (some of the Ops used have
-     no GPU kernel)
     """
 
     def __init__(self, activation, extremum: str,
                  adjacency_matrix: np.ndarray | coo_matrix | tf.Tensor |
                                    tf.SparseTensor,
-                 sparse_adjacency: bool = False,
                  **kwargs):
         super(Activation, self).__init__(trainable=False, **kwargs)
         # self.supports_masking = True
