@@ -128,7 +128,7 @@ class ExtremumConstraintModule(Activation):
         # Compute raw activations
         act = self.activation(inputs)
         # Perform pooling/reduction over the graph
-        return _ragged_coo_graph_reduce(values=act,
+        ecm_act = _ragged_coo_graph_reduce(values=act,
                                         adjacency_list=self.adjacency_list,
                                         axis=-1,
                                         reduce_fn=self._extremum_func,
@@ -136,6 +136,29 @@ class ExtremumConstraintModule(Activation):
                                         # adjacency list is sorted at build
                                         # time
                                         )
+        # Bug Fix: This reshape is introduced to fix a weird bug at graph
+        # creation time in evaluate and fit (keras). Code to reproduce the bug:
+        # ecm_layer_max = layers.ExtremumConstraintModule(
+        #     activation="linear",
+        #     extremum="max",
+        #     adjacency_matrix=adj_mat.transpose(),
+        #     sparse_adjacency=True)
+        #
+        # model = keras.Sequential([keras.layers.Input(shape=(4,)),
+        # ecm_layer_max])
+        # model.compile(loss=keras.losses.binary_crossentropy, metrics=[
+        # metrics.RankErrorsAtPercentile(q=50, no_true_label_value=1.0,
+        # interpolation='linear')], )
+        # model.fit(args)
+        # would raise: "ValueError: Number of mask dimensions must be specified,
+        # even if some dimensions are None.  E.g. shape=[None] is ok,
+        # but shape=None is not." from the boolean_mask function called in
+        # nanpercentile.
+        # I have the impression that upon converting a sparse Tensor to dense
+        # does not give the correct shape signature at graph construction, and
+        # by introducing this reshape somewhat fixes the issue, but it's hacky.
+        # Everything was running fine on eager execution
+        return tf.reshape(tensor=ecm_act, shape=tf.shape(inputs))
 
     def build(self, input_shape: tf.TensorShape):
         # Sort the adjacency list according to the destination index
