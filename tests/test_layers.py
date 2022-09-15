@@ -479,4 +479,33 @@ class Test(tf.test.TestCase):
                                             sorted_adj_list=False)
         )
         # Check 3D
+        x = [[[.2, .3, .5],
+              [.5, .2, .3]],
+             [[.2, .3, .5],
+              [.5, .2, .3]]]
 
+        self.assertAllCloseAccordingToType(
+            [[[0.2, 0.5, 0.5],
+             [0.5, 0.7, 0.3]],
+             [[0.2, 0.5, 0.5],
+              [0.5, 0.7, 0.3]]],
+            layers._ragged_coo_graph_reduce(values=x,
+                                            adjacency_list=adj_list,
+                                            axis=2,
+                                            reduce_fn=tf.reduce_sum,
+                                            sorted_adj_list=False)
+        )
+        adj_list = [[0, 0],
+                    [1, 1],
+                    [0, 1]]
+        self.assertAllCloseAccordingToType(
+            [[[.2, .3, .5],
+              [.7, .5, .8]],
+             [[.2, .3, .5],
+              [.7, .5, .8]]],
+            layers._ragged_coo_graph_reduce(values=x,
+                                            adjacency_list=adj_list,
+                                            axis=1,
+                                            reduce_fn=tf.reduce_sum,
+                                            sorted_adj_list=False)
+        )

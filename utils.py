@@ -125,11 +125,14 @@ def move_axis_to(input_tensor, axis_index, new_index):
     dest_index = tf.convert_to_tensor(new_index, dtype=tf.int32)
     dest_index = tf.squeeze(new_index)
 
-    if tf.rank(axis) > 0 or tf.rank(dest_index) > 0:
-        raise NotImplementedError("Moving more than one axis at a time is "
-                                  "not supported.")
+    tf.assert_rank(axis, 0, message="Moving more than one axis at a time is "
+                                    "not supported.")
+    tf.assert_rank(dest_index, 0,
+                   message="Moving more than one axis at a time is "
+                           "not supported.")
 
     # Get actual axis indices if any axis is <0
+    # TODO cleanup code redundancy via _to_positive_indices function
     neg_axis = tf.less(axis, 0)
     if tf.reduce_any(neg_axis):
         axis = tf.where(condition=neg_axis,
@@ -158,6 +161,7 @@ def move_axis_to(input_tensor, axis_index, new_index):
                          axis=0)
 
     return tf.transpose(a=input_tensor, perm=axis_map)
+
 
 def _to_positive_indices(tensor_shape, indices):
     # FIXME only works in 1D
@@ -228,13 +232,13 @@ def compute_ranks(values: tf.Tensor,
                        stable=False) + 1
     return ranks
 
+
 def pop_element_from_1d_tensor(input_tensor, index):
     raise NotImplementedError
 
 
 def insert_element_to_1d_tensor(input_tensor, index):
     raise NotImplementedError
-
 
 
 # Adapted from tensorflow-ranking v0.6.0, utils.py

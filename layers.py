@@ -458,6 +458,7 @@ class DenseHierL2Reg(keras.layers.Dense):
         return super(DenseHierL2Reg, self).call(inputs=inputs)
 
 
+@tf.function
 def _ragged_coo_graph_reduce(values: tf.Tensor,
                              adjacency_list: tf.Tensor,
                              axis: int,
@@ -490,8 +491,9 @@ def _ragged_coo_graph_reduce(values: tf.Tensor,
     # Preprocess inputs
     values = tf.convert_to_tensor(values)
     adjacency_list = tf.convert_to_tensor(adjacency_list, dtype=tf.int32)
-    if tf.rank(adjacency_list) != 2:
-        raise ValueError("The adjacency list must be a 2D tensor.")
+    tf.assert_rank(adjacency_list, 2, message="The adjacency list must be a "
+                                              "2D tensor (or tensor like "
+                                              "object)")
 
     # Sort the adjacency list according to the destination index
     # This step is required for building a ragged Tensor from row_ids (row_ids
