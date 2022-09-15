@@ -112,13 +112,6 @@ class TestECM(tf.test.TestCase):
             ecm_layer_min.build(input_shape=tf.TensorShape([None, 4]))
             # Test building with partially unknown input_shape
             ecm_layer_min.build(input_shape=tf.TensorShape([None, 4]))
-            if is_sparse_mat:
-                self.assertShapeEqual(np.zeros(shape=[1, 4, 4]),
-                                      tf.sparse.to_dense(
-                                          ecm_layer_min.adjacency_mat))
-            else:
-                self.assertShapeEqual(np.zeros(shape=[1, 4, 4]),
-                                      ecm_layer_min.adjacency_mat)
 
             # Try feeding an input layer (functional API)
             ecm_layer_max = layers.ExtremumConstraintModule(
