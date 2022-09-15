@@ -11,78 +11,78 @@ from scipy import sparse
 class TestECM(tf.test.TestCase):
     def test_call(self):
         # Check constructor behavior
-        adj_mat = np.array([[0, 0], [1, 0]])  # 1 is child of 0
-        # if is_sparse_mat:
-        #     adj_mat = sparse.coo_matrix(adj_mat)
-        ecm_layer_min = layers.ExtremumConstraintModule(
-            activation="linear",
-            extremum="min",
-            adjacency_matrix=adj_mat)
-        ecm_layer_max = layers.ExtremumConstraintModule(
-            activation="linear",
-            extremum="max",
-            adjacency_matrix=adj_mat)
+        def void_func(x):
+            return x
 
-        # sample size 1, 2 class 1 relationship
-        input_logits = tf.constant(np.array([[-1.0, 2.0]]),
-                                   dtype=tf.float32)
-        self.assertAllEqual(np.array([[-1.0, -1.0]]),
-                            ecm_layer_min(input_logits))
-        self.assertAllEqual(np.array([[-1.0, 2.0]]),
-                            ecm_layer_max(input_logits))
-        # Test non linear activation function
-        ecm_layer_min_sigm = layers.ExtremumConstraintModule(
-            activation="sigmoid",
-            extremum="min",
-            adjacency_matrix=adj_mat)
-        self.assertAllCloseAccordingToType(
-            tf.keras.activations.sigmoid(np.array([[-1.0, -1.0]])),
-            ecm_layer_min_sigm(input_logits))
-        # sample size 2
-        input_logits = tf.constant(np.array([[-1.0, 2.0],
-                                             [2.0, -1.0]]),
-                                   dtype=tf.float32)
-        self.assertAllEqual(np.array([[-1.0, -1.0],
-                                      [2.0, -1.0]]),
-                            ecm_layer_min(input_logits))
-        self.assertAllEqual(np.array([[-1.0, 2.0],
-                                      [2.0, 2.0]]),
-                            ecm_layer_max(input_logits))
-        # 3 class adjacency matrix, test coherent classification cases
-        # 1 and 2 are child of 0
-        # 3 is child of 1 (hence of 0)
-        adj_mat = np.array([[0, 0, 0, 0], [1, 0, 0, 0],
-                            [1, 0, 0, 0], [1, 1, 0, 0]])
-        input_logits = tf.constant(np.array([[4.0, 3.0, -1.0, 2.0],
-                                             [4.0, 2.0, -1.0, 3.0],
-                                             [-1.0, 2.0, -1.0, 3.0]]),
-                                   dtype=tf.float32)
-        ecm_layer_min = layers.ExtremumConstraintModule(
-            activation="linear",
-            extremum="min",
-            adjacency_matrix=adj_mat)
-        # transpose adj_mat for max to give a parent->child adj_mat
-        ecm_layer_max = layers.ExtremumConstraintModule(
-            activation="linear",
-            extremum="max",
-            adjacency_matrix=adj_mat.transpose())
-        self.assertAllEqual(np.array([[4.0, 3.0, -1.0, 2.0],
-                                      [4.0, 2.0, -1.0, 2.0],
-                                      [-1.0, -1.0, -1.0, -1.0]]),
-                            ecm_layer_min(input_logits))
-        self.assertAllEqual(np.array([[4.0, 3.0, -1.0, 2.0],
-                                      [4.0, 3.0, -1.0, 3.0],
-                                      [3.0, 3.0, -1.0, 3.0]]),
-                            ecm_layer_max(input_logits))
+        for obj_cons in (void_func, sparse.coo_matrix,
+                         tf.constant, tf.sparse.from_dense):
+            adj_mat = [[0, 0], [1, 0]]  # 1 is child of 0
+            ecm_layer_min = layers.ExtremumConstraintModule(
+                activation="linear",
+                extremum="min",
+                adjacency_matrix=obj_cons(adj_mat))
+            ecm_layer_max = layers.ExtremumConstraintModule(
+                activation="linear",
+                extremum="max",
+                adjacency_matrix=obj_cons(adj_mat))
 
-        # Test different input types
-        input_logits = tf.cast(input_logits, dtype=tf.float64)
-        ecm_layer_max(input_logits)
-        # FIXME support for int in sparse ECM
-        # input_logits = tf.cast(input_logits, dtype=tf.int64)
-        # ecm_layer_max(input_logits)
-        # input_logits = tf.cast(input_logits, dtype=tf.int32)
-        # ecm_layer_max(input_logits)
+            # sample size 1, 2 class 1 relationship
+            input_logits = tf.constant(np.array([[-1.0, 2.0]]),
+                                       dtype=tf.float32)
+            self.assertAllEqual(np.array([[-1.0, -1.0]]),
+                                ecm_layer_min(input_logits))
+            self.assertAllEqual(np.array([[-1.0, 2.0]]),
+                                ecm_layer_max(input_logits))
+            # Test non linear activation function
+            ecm_layer_min_sigm = layers.ExtremumConstraintModule(
+                activation="sigmoid",
+                extremum="min",
+                adjacency_matrix=obj_cons(adj_mat))
+            self.assertAllCloseAccordingToType(
+                tf.keras.activations.sigmoid(np.array([[-1.0, -1.0]])),
+                ecm_layer_min_sigm(input_logits))
+            # sample size 2
+            input_logits = tf.constant(np.array([[-1.0, 2.0],
+                                                 [2.0, -1.0]]),
+                                       dtype=tf.float32)
+            self.assertAllEqual(np.array([[-1.0, -1.0],
+                                          [2.0, -1.0]]),
+                                ecm_layer_min(input_logits))
+            self.assertAllEqual(np.array([[-1.0, 2.0],
+                                          [2.0, 2.0]]),
+                                ecm_layer_max(input_logits))
+            # 3 class adjacency matrix, test coherent classification cases
+            # 1 and 2 are child of 0
+            # 3 is child of 1 (hence of 0)
+            adj_mat = np.array([[0, 0, 0, 0], [1, 0, 0, 0],
+                                [1, 0, 0, 0], [1, 1, 0, 0]])
+            input_logits = tf.constant(np.array([[4.0, 3.0, -1.0, 2.0],
+                                                 [4.0, 2.0, -1.0, 3.0],
+                                                 [-1.0, 2.0, -1.0, 3.0]]),
+                                       dtype=tf.float32)
+            ecm_layer_min = layers.ExtremumConstraintModule(
+                activation="linear",
+                extremum="min",
+                adjacency_matrix=obj_cons(adj_mat))
+            # transpose adj_mat for max to give a parent->child adj_mat
+            ecm_layer_max = layers.ExtremumConstraintModule(
+                activation="linear",
+                extremum="max",
+                adjacency_matrix=obj_cons(adj_mat.transpose()))
+            self.assertAllEqual(np.array([[4.0, 3.0, -1.0, 2.0],
+                                          [4.0, 2.0, -1.0, 2.0],
+                                          [-1.0, -1.0, -1.0, -1.0]]),
+                                ecm_layer_min(input_logits))
+            self.assertAllEqual(np.array([[4.0, 3.0, -1.0, 2.0],
+                                          [4.0, 3.0, -1.0, 3.0],
+                                          [3.0, 3.0, -1.0, 3.0]]),
+                                ecm_layer_max(input_logits))
+
+            # Test different input types
+            for mydtype in (tf.float64, tf.float32, tf.float16, tf.int64,
+                            tf.int32):
+                input_logits = tf.cast(input_logits, dtype=mydtype)
+                ecm_layer_max(input_logits)
 
     def test_build(self):
         # 4 class adjacency matrix, test coherent classification cases
@@ -467,7 +467,7 @@ class Test(tf.test.TestCase):
 
         self.assertAllCloseAccordingToType(
             [[[0.2, 0.5, 0.5],
-             [0.5, 0.7, 0.3]],
+              [0.5, 0.7, 0.3]],
              [[0.2, 0.5, 0.5],
               [0.5, 0.7, 0.3]]],
             layers._ragged_coo_graph_reduce(values=x,

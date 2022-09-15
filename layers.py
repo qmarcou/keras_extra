@@ -66,9 +66,10 @@ class ExtremumConstraintModule(Activation):
             adjacency_matrix = np.asmatrix(adjacency_matrix)
             adjacency_matrix = coo_matrix(adjacency_matrix)
         elif isinstance(adjacency_matrix, tf.SparseTensor):
-            adjacency_matrix = coo_matrix(adjacency_matrix.values,
-                                          adjacency_matrix.indices[:, 0],
-                                          adjacency_matrix.indices[:, 1])
+            adjacency_matrix = coo_matrix((adjacency_matrix.values,
+                                           (adjacency_matrix.indices[:, 0],
+                                            adjacency_matrix.indices[:, 1])),
+                                          shape=tf.shape(adjacency_matrix))
         else:
             if not isspmatrix_coo(adjacency_matrix):
                 adjacency_matrix = adjacency_matrix.tocoo()
