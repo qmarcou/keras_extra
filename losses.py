@@ -208,7 +208,6 @@ class MCLoss(keras.losses.Loss):
                  reduction=losses_utils.ReductionV2.AUTO,
                  name='MCLoss',
                  class_weights=None,
-                 sparse_adjacency: bool = False,
                  activation='linear'
                  ):
         """
@@ -226,18 +225,12 @@ class MCLoss(keras.losses.Loss):
         class_weights: class weights for the weighted binary cross-entropy
             computation. Defaults to None, meaning equal unit weights for all
             classes.
-        sparse_adjacency: bool whether sparse computation should be used for
             the ECM layer.
         activation: str or keras.Activation Activation to be applied in the ECM
             layer. Defaults to 'linear'. 'linear' should be used if from_logits
              is True.
         """
-        if sparse_adjacency:
-            raise ValueError("MCLoss cannot work with sparse adjacency "
-                             "matrices yet, the TF and my custom "
-                             "implementation of sparse.reduce_max/min have "
-                             "no gradient registered, hence cannot be used "
-                             "in the loss.")
+
         super(MCLoss, self).__init__(
             name=name,
             reduction=reduction,
@@ -251,7 +244,6 @@ class MCLoss(keras.losses.Loss):
             activation=activation,
             extremum='max',
             adjacency_matrix=adjacency_matrix,
-            sparse_adjacency=sparse_adjacency,
             dtype='float32'  # Hotfix to enable use of mixed type policy
         )
 
@@ -324,7 +316,6 @@ class TreeMinLoss(keras.losses.Loss):
                  reduction=losses_utils.ReductionV2.AUTO,
                  name='TreeMinLoss',
                  class_weights=None,
-                 sparse_adjacency: bool = False,
                  activation='linear'
                  ):
         """
@@ -342,18 +333,11 @@ class TreeMinLoss(keras.losses.Loss):
         class_weights: class weights for the weighted binary cross-entropy
             computation. Defaults to None, meaning equal unit weights for all
             classes.
-        sparse_adjacency: bool whether sparse computation should be used for
-            the ECM layer.
         activation: str or keras.Activation Activation to be applied in the ECM
             layer. Defaults to 'linear'. 'linear' should be used if from_logits
              is True.
         """
-        if sparse_adjacency:
-            raise ValueError("MCLoss cannot work with sparse adjacency "
-                             "matrices yet, the TF and my custom "
-                             "implementation of sparse.reduce_max/min have "
-                             "no gradient registered, hence cannot be used "
-                             "in the loss.")
+
         super(TreeMinLoss, self).__init__(
             name=name,
             reduction=reduction,
@@ -367,14 +351,12 @@ class TreeMinLoss(keras.losses.Loss):
             activation=activation,
             extremum='max',
             adjacency_matrix=adjacency_matrix,
-            sparse_adjacency=sparse_adjacency,
             dtype='float32'  # Hotfix to enable use of mixed type policy
         )
         self._MinCMact = keras_utils.layers.ExtremumConstraintModule(
             activation=activation,
             extremum='min',
             adjacency_matrix=adjacency_matrix.transpose(),
-            sparse_adjacency=sparse_adjacency,
             dtype='float32'  # Hotfix to enable use of mixed type policy
         )
 
