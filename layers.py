@@ -144,8 +144,7 @@ class ExtremumConstraintModule(Activation):
         # ecm_layer_max = layers.ExtremumConstraintModule(
         #     activation="linear",
         #     extremum="max",
-        #     adjacency_matrix=adj_mat.transpose(),
-        #     sparse_adjacency=True)
+        #     adjacency_matrix=adj_mat.transpose())
         #
         # model = keras.Sequential([keras.layers.Input(shape=(4,)),
         # ecm_layer_max])
@@ -177,8 +176,7 @@ class ExtremumConstraintModule(Activation):
                                         )
 
     def get_config(self):
-        config = {'extremum': str(self.extremum),
-                  'sparse': self.sparse_adjacency}
+        config = {'extremum': str(self.extremum)}
         # FIXME reshape adj_mat to output it
         base_config = super(ExtremumConstraintModule, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
