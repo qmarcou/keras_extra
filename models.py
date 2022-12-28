@@ -346,6 +346,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                      log_level="error")
     def fit(self, hp: kt.HyperParameters,
             model: keras.models.Model, x, y,
+            earlystop_mode: str,
             earlystop_monitor: str = 'val_loss',
             **kwargs):
         verbose = kwargs.get('verbose')
@@ -358,6 +359,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
             min_delta=0.0,
             patience=3,
             verbose=1,
+            mode=earlystop_mode,
             # On resotring best weights: https://github.com/keras-team/keras/issues/11371
             restore_best_weights=True)
 
