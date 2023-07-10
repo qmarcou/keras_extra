@@ -2,7 +2,7 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
-from keras_utils import utils
+from . import utils
 
 
 def _return_nan_percentile(x, q, axis):

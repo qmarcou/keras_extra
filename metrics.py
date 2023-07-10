@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from typing import Optional
-from keras_utils import utils, stats
+from . import utils, stats
 import abc
 import six
 
@@ -291,7 +291,7 @@ def subset_metric_builder(metric_class: type[keras.metrics.Metric]):
 """Implements F scores."""
 
 
-@tf.keras.utils.register_keras_serializable(package="Addons")
+#@tf.keras.utils.register_keras_serializable(package="Addons")
 class FBetaScore(tf.keras.metrics.Metric):
     r"""Computes F-Beta score.
     It is the weighted harmonic mean of precision
@@ -475,7 +475,7 @@ class FBetaScore(tf.keras.metrics.Metric):
         return self.reset_state()
 
 
-@tf.keras.utils.register_keras_serializable(package="Addons")
+#@tf.keras.utils.register_keras_serializable(package="Addons")
 class F1Score(FBetaScore):
     r"""Computes F-1 Score.
     It is the harmonic mean of precision and recall.
@@ -596,7 +596,7 @@ _DEFAULT_GAIN_FN = lambda label: tf.pow(2.0, label) - 1
 _DEFAULT_RANK_DISCOUNT_FN = lambda rank: tf.math.log(2.) / tf.math.log1p(rank)
 
 
-@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
+#@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
 def identity(label):
     """Identity function that returns the input label.
   Args:
@@ -608,7 +608,7 @@ def identity(label):
     return label
 
 
-@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
+#@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
 def inverse(rank):
     """Computes the inverse of input rank.
   Args:
@@ -620,7 +620,7 @@ def inverse(rank):
     return tf.math.divide_no_nan(1., rank)
 
 
-@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
+#@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
 def pow_minus_1(label):
     """Computes `2**x - 1` element-wise for each label.
   Can be used to define `gain_fn` for `tfr.keras.metrics.NDCGMetric`.
@@ -633,7 +633,7 @@ def pow_minus_1(label):
     return tf.math.pow(2., label) - 1.
 
 
-@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
+#@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
 def log2_inverse(rank):
     """Computes `1./log2(1+x)` element-wise for each label.
   Can be used to define `rank_discount_fn` for `tfr.keras.metrics.NDCGMetric`.
@@ -915,7 +915,7 @@ class _RankingMetric(tf.keras.metrics.Mean):
         return config
 
 
-@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
+#@tf.keras.utils.register_keras_serializable(package="tensorflow_ranking")
 class NDCGMetric(_RankingMetric):
     r"""Normalized discounted cumulative gain (NDCG).
   Normalized discounted cumulative gain ([Järvelin et al, 2002][jarvelin2002])

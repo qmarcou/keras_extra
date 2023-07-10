@@ -7,7 +7,7 @@ from tensorflow.python.keras.losses import LossFunctionWrapper
 from tensorflow.python.keras.utils import losses_utils
 import numpy as np
 from scipy.sparse import coo_matrix
-import keras_utils.layers
+from . import layers as ku_layers
 
 
 # Some useful ressources:
@@ -240,7 +240,7 @@ class MCLoss(keras.losses.Loss):
         else:
             self._class_weights = class_weights
         self._from_logits = from_logits
-        self._MCMact = keras_utils.layers.ExtremumConstraintModule(
+        self._MCMact = ku_layers.ExtremumConstraintModule(
             activation=activation,
             extremum='max',
             adjacency_matrix=adjacency_matrix,
@@ -347,13 +347,13 @@ class TreeMinLoss(keras.losses.Loss):
         else:
             self._class_weights = class_weights
         self._from_logits = from_logits
-        self._MaxCMact = keras_utils.layers.ExtremumConstraintModule(
+        self._MaxCMact = ku_layers.ExtremumConstraintModule(
             activation=activation,
             extremum='max',
             adjacency_matrix=adjacency_matrix,
             dtype='float32'  # Hotfix to enable use of mixed type policy
         )
-        self._MinCMact = keras_utils.layers.ExtremumConstraintModule(
+        self._MinCMact = ku_layers.ExtremumConstraintModule(
             activation=activation,
             extremum='min',
             adjacency_matrix=adjacency_matrix.transpose(),

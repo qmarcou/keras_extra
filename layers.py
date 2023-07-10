@@ -12,9 +12,9 @@ from keras import activations
 from tensorflow.keras import backend as K
 from typing import Optional
 from enum import Enum
-import keras_utils.sparse
-import keras_utils.utils
-from keras_utils.callbacks import DataEvaluator
+from . import sparse
+from . import utils
+from .callbacks import DataEvaluator
 
 
 # Useful references:
@@ -379,7 +379,7 @@ def _ragged_coo_graph_reduce(values: tf.Tensor,
     # Group according to the destination index using a Ragged Tensor
     # First swap axes to enable the use of ragged tensor construction
     # on first dimension
-    expanded_values = keras_utils.utils.move_axis_to_first_dim(
+    expanded_values = utils.move_axis_to_first_dim(
         x=expanded_values,
         axis=axis)
 
@@ -396,7 +396,7 @@ def _ragged_coo_graph_reduce(values: tf.Tensor,
                              keepdims=False, name="ragged_reduction")
 
     # Now move the axis of interest back to its original place (0->axis)
-    reduced_vals = keras_utils.utils.move_axis_to(input_tensor=reduced_vals,
+    reduced_vals = utils.move_axis_to(input_tensor=reduced_vals,
                                                   axis_index=0,
                                                   new_index=axis)
     return reduced_vals

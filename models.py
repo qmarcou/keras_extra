@@ -3,7 +3,7 @@ from tensorflow import keras
 import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
 from keras.losses import BinaryCrossentropy, BinaryFocalCrossentropy
-import keras_utils.metrics
+from . import metrics as ku_metrics
 import copy
 from codecarbon import track_emissions
 import gc
@@ -136,7 +136,7 @@ def sequential_multilabel_model(n_layers, layer_size, output_size, input_size,
                                 output_layer: keras.layers.Layer = None,
                                 loss=BinaryCrossentropy,
                                 loss_kwargs={'from_logits': False},
-                                metrics=(keras_utils.metrics.Coverage(),
+                                metrics=(ku_metrics.Coverage(),
                                          keras.metrics.BinaryAccuracy(),
                                          keras.metrics.Precision(),
                                          keras.metrics.AUC(),

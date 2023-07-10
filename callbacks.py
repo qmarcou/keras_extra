@@ -1,7 +1,7 @@
 """A collection of custom Keras callbacks."""
 from tensorflow import keras
 import tensorflow as tf
-import dtypecheck
+from libs import dtypecheck
 
 
 class BatchLossLRHistory(keras.callbacks.Callback):
