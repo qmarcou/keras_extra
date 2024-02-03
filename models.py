@@ -2,8 +2,9 @@ import numpy as np
 from tensorflow import keras
 import keras_tuner as kt
 from tensorflow.python.keras.callbacks import EarlyStopping
-from keras.losses import BinaryCrossentropy, BinaryFocalCrossentropy
+from tensorflow.keras.losses import BinaryCrossentropy, BinaryFocalCrossentropy
 from . import metrics as ku_metrics
+from . import layers as ku_layers
 import copy
 from codecarbon import track_emissions
 import gc
@@ -278,7 +279,7 @@ class SequentialMultilabelHypermodel(kt.HyperModel):
                 hp_kwargs['outputHierL2Reg'].pop('enable')
                 adj_mat = hp_kwargs['outputHierL2Reg'].pop('adjacency_matrix')
                 act = hp_kwargs['outputHierL2Reg'].pop('activation')
-                output_layer = keras_utils.layers.DenseHierL2Reg(
+                output_layer = ku_layers.DenseHierL2Reg(
                     units=self.output_size,
                     adjacency_matrix=adj_mat,
                     hier_side='out',
