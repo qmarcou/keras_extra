@@ -1,0 +1,9 @@
+codecarbon
+keras
+keras_tuner
+keras_utils
+numpy
+scipy
+six
+tensorflow
+tensorflow_probability
