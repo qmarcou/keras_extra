@@ -37,7 +37,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with unittest
       run: |
-        coverage -m unittest keras_utils/tests/test_*.py
+        coverage run -m unittest keras_utils/tests/test_*.py
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
