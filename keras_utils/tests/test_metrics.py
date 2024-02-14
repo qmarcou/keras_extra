@@ -96,9 +96,9 @@ class TestSubsetMetric(TestCase):
     def test_metric_construction(self):
         new_metric = metrics.subset_metric_builder(keras.metrics.Accuracy)
         self.assertIsInstance(new_metric, type)
-        new_metric_instance = new_metric(gather_kwargs={})
+        new_metric_instance = new_metric(slicing_func_kwargs={})
         self.assertEqual(new_metric_instance.name, "subset_Accuracy")
-        new_metric_instance = new_metric(gather_kwargs={},
+        new_metric_instance = new_metric(slicing_func_kwargs={},
                                          name="mysubsetmetric")
         self.assertEqual(new_metric_instance.name,
                          "mysubsetmetric")
