@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 
-class Test(tf.test.TestCase):
+class TestWBCE(tf.test.TestCase):
     def test_weighted_binary_crossentropy(self):
         wbc = losses.weighted_binary_crossentropy
         y_true = [[0, 1], [0, 0]]
@@ -76,7 +76,7 @@ class Test(tf.test.TestCase):
         model = keras.Sequential([keras.layers.Dense(units=2,
                                                      activation='sigmoid')])
         model.compile(loss=wbce)
-        model.fit(x=[1, 2],
+        model.fit(x=[[1], [2]],
                   y=y_true,
                   verbose=False)
         # Inside a more functional model
@@ -89,7 +89,7 @@ class Test(tf.test.TestCase):
                                                  from_logits=True,
                                                  reduction=Reduction.SUM_OVER_BATCH_SIZE)
         model.compile(loss=wbce)
-        model.fit(x=[1, 2],
+        model.fit(x=[[1], [2]],
                   y=y_true,
                   verbose=False)
 
