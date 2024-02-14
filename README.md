@@ -1,6 +1,6 @@
 # keras_extra
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/qmarcou/keras_extra/python-package.yml?label=Tests&logo=github&logoColor=white&style=flat-square)](https://github.com/qmarcou/keras_extra/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/qmarcou/keras_extra/python-package.yml?label=Tests&logo=github&logoColor=white&style=flat-square)](https://github.com/qmarcou/keras_extra/actions/workflows/python-package.yml)
 [![codecov](https://codecov.io/gh/qmarcou/keras_extra/graph/badge.svg?token=4DG9D63DR9)](https://codecov.io/gh/qmarcou/keras_extra)
 
 This python modules contains a collection of custom Tensorflow Keras objects for:
