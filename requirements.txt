@@ -5,5 +5,5 @@ keras_utils
 numpy
 scipy
 six
-tensorflow
+tensorflow<=2.11
 tensorflow_probability
