@@ -13,7 +13,7 @@ class Test(tf.test.TestCase):
                                tf.ones(2, dtype=tf.float32),
                                [2, 2])
         sp_t = tf.sparse.expand_dims(sp_t, axis=0)
-        sp_t_exp = sparse.expand_single_dim(sp_t,
+        sp_t_exp = sparse.expand_single_dim(sp_tensor=sp_t,
                                             times=2,
                                             axis=0)
         exp_out = np.array([[[1., 0.], [0., 1.]],

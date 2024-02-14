@@ -19,9 +19,23 @@ def expand_single_dim(sp_tensor: tf.sparse.SparseTensor,
                       times: int,
                       axis: int):
     out_tensor = sp_tensor
-    for j in tf.range(start=0, limit=times - 1, delta=1):
+    # sp_tensor_shape = sp_tensor.get_shape()
+    # tensor_shape_invariant : tf.TensorShape = tf.TensorShape.concatenate(
+    #                             sp_tensor_shape[0:axis],
+    #                                    tf.TensorShape([None])).concatenate(
+    #                                    sp_tensor_shape[axis+1:],)
+    j=tf.constant(0)
+    while j<(times-1):
+    #for j in tf.range(start=0, limit=times - 1, delta=1):
+        # tf.autograph.experimental.set_loop_options(
+        #     shape_invariants=[(out_tensor, tf.TensorShape([None]))]
+        # )
+        # tf.autograph.experimental.set_loop_options(
+        #     shape_invariants=[(out_tensor, tensor_shape_invariant)]
+        # )
         out_tensor = tf.sparse.concat(axis=axis,
                                       sp_inputs=[out_tensor, sp_tensor])
+        j+=1
     return out_tensor
 
 
