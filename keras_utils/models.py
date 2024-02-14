@@ -75,7 +75,7 @@ class SequentialPreOutputLoss(keras.Sequential):
         super(SequentialPreOutputLoss, self).build(input_shape=input_shape)
         # In case no Input or batch_shape had been provided output tensors
         # had not been created
-        if self.loss_layer_name is not None and \
+        if self.loss_layer_name is not None and self._loss_layer_added and\
                 self._loss_tensor_output is None:
             self.output_layer_name = self.layers[-1].name
             self._loss_tensor_output = self._loss_layer.output

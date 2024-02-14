@@ -69,6 +69,7 @@ class TestSequentialPreOutputLoss(tf.test.TestCase):
         m.compile()
         m.compile(loss=keras.losses.BinaryCrossentropy(),
                   metrics=keras.metrics.AUC())
+        # Non existing loss layer name
         m = SequentialPreOutputLoss(layers=[inputL, hiddenL, outputL],
                                     loss_layer_name="ZZZ")
         self.assertRaises(ValueError, m.compile)
